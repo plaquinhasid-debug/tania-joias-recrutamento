@@ -6,15 +6,15 @@ import { Card, CardContent } from "@/components/ui/card"
 const TESTIMONIALS = [
   {
     name: "Michely Mauá",
-    city: "Belo Horizonte, MG",
+    city: "Belo Horizonte",
   },
   {
     name: "Sonia Aguiar Mauá",
-    city: "Recife, PE",
+    city: "Recife",
   },
   {
     name: "Gislaine Mauá",
-    city: "Porto Alegre, RS",
+    city: "Porto Alegre",
   },
 ]
 
