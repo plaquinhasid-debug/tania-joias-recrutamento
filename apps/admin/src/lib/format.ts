@@ -52,3 +52,13 @@ export function formatPercent(value: number, fractionDigits = 0): string {
   if (!Number.isFinite(value)) return "0%"
   return `${value.toFixed(fractionDigits)}%`
 }
+
+export function whatsappLinkWithMessage(
+  telefone: string | null | undefined,
+  message: string,
+): string | null {
+  const link = whatsappLink(telefone)
+  if (!link) return null
+  const encoded = encodeURIComponent(message)
+  return `${link}?text=${encoded}`
+}

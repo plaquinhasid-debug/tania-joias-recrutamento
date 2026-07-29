@@ -37,9 +37,11 @@ export function SofiaChatPanel({ flow, onClose }: SofiaChatPanelProps) {
     <>
       <SheetHeader>
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gold/15 font-display text-lg font-semibold text-gold">
-            S
-          </div>
+          <img
+            src="/assets/sofia-avatar.jpg"
+            alt="Sofia"
+            className="size-10 shrink-0 rounded-full object-cover"
+          />
           <div>
             <SheetTitle>Sofia</SheetTitle>
             <SheetDescription>Assistente virtual · Tania Joias</SheetDescription>

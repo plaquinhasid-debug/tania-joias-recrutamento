@@ -10,6 +10,14 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,7 +26,7 @@ import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { IprBreakdown } from "@/components/leads/IprBreakdown"
 import { useLead, useLeadAnalysis, useLeadAnswers, useUpdateLead } from "@/hooks/useLeadDetail"
-import { formatDateTime, formatPhone, whatsappLink } from "@/lib/format"
+import { formatDateTime, formatPhone, whatsappLink, whatsappLinkWithMessage } from "@/lib/format"
 import type { IprBreakdown as IprBreakdownType } from "@/types"
 
 interface LeadDetailDrawerProps {
@@ -34,10 +42,15 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   const updateLead = useUpdateLead()
 
   const [observacoes, setObservacoes] = React.useState("")
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     setObservacoes(lead?.observacoes ?? "")
   }, [lead?.id, lead?.observacoes])
+
+  const defaultMessage = lead
+    ? `Olá ${lead.nome?.split(" ")[0]}! 🌸\n\nParabéns! Sua candidatura como revendedora foi aprovada.\n\nNossa equipe entrará em contato em breve com todos os detalhes.\n\nQualquer dúvida, estamos por aqui!\n\nAbraços,\nEquipe Tania Joias`
+    : ""
 
   const waLink = lead ? whatsappLink(lead.telefone) : null
   const canWhatsapp = Boolean(lead?.whatsapp) && Boolean(waLink)
@@ -186,6 +199,52 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
               </section>
             </div>
 
+            <Dialog open={whatsappDialogOpen} onOpenChange={setWhatsappDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Enviar mensagem via WhatsApp</DialogTitle>
+                  <DialogDescription>
+                    Para {lead.nome}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Textarea
+                    value={defaultMessage}
+                    readOnly
+                    rows={6}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use este template como base ou personalize a mensagem diretamente no WhatsApp.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(defaultMessage)
+                      toast.success("Mensagem copiada!")
+                    }}
+                  >
+                    Copiar mensagem
+                  </Button>
+                  <Button
+                    variant="gold"
+                    onClick={() => {
+                      const link = whatsappLinkWithMessage(lead.telefone, defaultMessage)
+                      if (link) {
+                        window.open(link, "_blank", "noopener,noreferrer")
+                        setWhatsappDialogOpen(false)
+                      }
+                    }}
+                  >
+                    <MessageCircle className="size-4" />
+                    Abrir WhatsApp
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <SheetFooter className="flex-row flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -209,7 +268,7 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
                 variant="gold"
                 className="flex-1"
                 disabled={!canWhatsapp}
-                onClick={() => waLink && window.open(waLink, "_blank", "noopener,noreferrer")}
+                onClick={() => setWhatsappDialogOpen(true)}
               >
                 <MessageCircle className="size-4" />
                 Enviar WhatsApp
