@@ -14,11 +14,11 @@ const STEPS = [
   {
     number: "02",
     title: "Aprovação do perfil",
-    text: "Nossa equipe analisa seu cadastro e libera o acesso ao catálogo e aos materiais de revenda.",
+    text: "Nossa equipe analisa seu cadastro e libera o acesso ao Mostruário e aos materiais de revenda.",
   },
   {
     number: "03",
-    title: "Treinamento e catálogo",
+    title: "Treinamento e Mostruário",
     text: "Você recebe treinamento completo, tabela de preços e conteúdo pronto para divulgar.",
   },
   {

@@ -33,7 +33,7 @@ const BENEFITS = [
   {
     icon: Truck,
     title: "Logística facilitada",
-    text: "Você recebe as peças e cuidamos da reposição do seu catálogo.",
+    text: "Você recebe as peças e cuidamos da reposição do seu Mostruário.",
   },
   {
     icon: Users,

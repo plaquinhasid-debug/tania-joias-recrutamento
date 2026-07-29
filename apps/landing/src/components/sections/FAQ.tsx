@@ -23,9 +23,9 @@ const FAQ_ITEMS = [
       "Você decide. Muitas revendedoras começam com 1 a 2 horas por dia e ajustam o ritmo conforme os resultados.",
   },
   {
-    question: "Como recebo o catálogo de produtos?",
+    question: "Como recebo o Mostruário de produtos?",
     answer:
-      "Após a aprovação do seu cadastro, nossa equipe libera o acesso ao catálogo completo e aos materiais de divulgação.",
+      "Após a aprovação do seu cadastro, nossa equipe libera o acesso ao Mostruário completo e aos materiais de divulgação.",
   },
   {
     question: "Preciso estar empregada para participar?",
