@@ -3,26 +3,18 @@ import { Star } from "lucide-react"
 import { Reveal } from "@/components/Reveal"
 import { Card, CardContent } from "@/components/ui/card"
 
-/**
- * Depoimentos ILUSTRATIVOS (fictícios), usados apenas como exemplo de como a
- * seção deve se comportar visualmente. Substituir por depoimentos reais de
- * revendedoras antes de publicar em produção.
- */
 const TESTIMONIALS = [
   {
     name: "Michely Mauá",
     city: "Belo Horizonte, MG",
-    text: "Comecei revendendo para as colegas de trabalho e hoje já tenho uma clientela fiel. A renda extra mudou meu mês.",
   },
   {
     name: "Sonia Aguiar Mauá",
     city: "Recife, PE",
-    text: "O suporte da equipe é o que mais me surpreendeu. Sempre que tenho dúvida, alguém me responde rápido.",
   },
   {
     name: "Gislaine Mauá",
     city: "Porto Alegre, RS",
-    text: "Nunca tinha vendido nada antes. O treinamento me deu segurança para começar e hoje vendo direto pelo Instagram.",
   },
 ]
 
@@ -43,16 +35,16 @@ export function Depoimentos() {
           {TESTIMONIALS.map((testimonial, index) => (
             <Reveal key={testimonial.name} delay={index * 0.1}>
               <Card className="h-full">
-                <CardContent className=”flex h-full flex-col gap-4 pt-6”>
-                  <div className=”flex gap-0.5 text-gold”>
+                <CardContent className="flex h-full flex-col gap-4 pt-6">
+                  <div className="flex gap-0.5 text-gold">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className=”size-4 fill-current” />
+                      <Star key={i} className="size-4 fill-current" />
                     ))}
                   </div>
-                  <div className=”flex-1” />
+                  <div className="flex-1" />
                   <div>
-                    <p className=”text-sm font-medium text-foreground”>{testimonial.name}</p>
-                    <p className=”text-xs text-muted-foreground”>{testimonial.city}</p>
+                    <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
+                    <p className="text-xs text-muted-foreground">{testimonial.city}</p>
                   </div>
                 </CardContent>
               </Card>
