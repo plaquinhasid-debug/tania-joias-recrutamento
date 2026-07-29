@@ -223,6 +223,8 @@ Deno.serve(async (req) => {
     .update({ status: "concluida", completed_at: new Date().toISOString(), lead_id: lead.id })
     .eq("session_id", payload.session_id)
 
+  await supabase.from("answers").update({ lead_id: lead.id }).eq("session_id", payload.session_id)
+
   const eventos = [
     payload.trabalha ? "respondeu_trabalha_sim" : "respondeu_trabalha_nao",
     status === "aprovada" ? "aprovada" : status === "em_analise" ? "analise_manual" : "reprovada",
