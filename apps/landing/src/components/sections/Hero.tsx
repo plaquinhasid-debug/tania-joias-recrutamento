@@ -1,7 +1,6 @@
 import { motion } from "framer-motion"
 import { Sparkles } from "lucide-react"
 
-import { HeroOrnament } from "@/components/sections/HeroOrnament"
 import { Button } from "@/components/ui/button"
 
 interface HeroProps {
@@ -52,8 +51,13 @@ export function Hero({ onOpenSofia }: HeroProps) {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+          className="flex items-center justify-center"
         >
-          <HeroOrnament />
+          <img
+            src="/assets/hero-semijoias.jpg"
+            alt="Semijoias"
+            className="max-h-96 w-full rounded-lg object-cover shadow-lg"
+          />
         </motion.div>
       </div>
     </section>
