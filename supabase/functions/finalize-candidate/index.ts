@@ -223,7 +223,14 @@ Deno.serve(async (req) => {
     .update({ status: "concluida", completed_at: new Date().toISOString(), lead_id: lead.id })
     .eq("session_id", payload.session_id)
 
-  await supabase.from("answers").update({ lead_id: lead.id }).eq("session_id", payload.session_id)
+  // `is("lead_id", null)` evita "roubar" respostas de um lead anterior caso o
+  // mesmo session_id (persistido em sessionStorage) seja reaproveitado por uma
+  // conversa completamente nova na mesma aba do navegador.
+  await supabase
+    .from("answers")
+    .update({ lead_id: lead.id })
+    .eq("session_id", payload.session_id)
+    .is("lead_id", null)
 
   const eventos = [
     payload.trabalha ? "respondeu_trabalha_sim" : "respondeu_trabalha_nao",
