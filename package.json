@@ -1,0 +1,15 @@
+{
+  "name": "tania-joias",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:landing": "npm run dev --workspace=@tania-joias/landing",
+    "dev:admin": "npm run dev --workspace=@tania-joias/admin",
+    "build:landing": "npm run build --workspace=@tania-joias/landing",
+    "build:admin": "npm run build --workspace=@tania-joias/admin"
+  }
+}
