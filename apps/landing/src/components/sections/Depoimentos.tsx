@@ -43,18 +43,16 @@ export function Depoimentos() {
           {TESTIMONIALS.map((testimonial, index) => (
             <Reveal key={testimonial.name} delay={index * 0.1}>
               <Card className="h-full">
-                <CardContent className="flex h-full flex-col gap-4 pt-6">
-                  <div className="flex gap-0.5 text-gold">
+                <CardContent className=”flex h-full flex-col gap-4 pt-6”>
+                  <div className=”flex gap-0.5 text-gold”>
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="size-4 fill-current" />
+                      <Star key={i} className=”size-4 fill-current” />
                     ))}
                   </div>
-                  <p className="flex-1 text-sm leading-relaxed text-foreground">
-                    “{testimonial.text}”
-                  </p>
+                  <div className=”flex-1” />
                   <div>
-                    <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
-                    <p className="text-xs text-muted-foreground">{testimonial.city}</p>
+                    <p className=”text-sm font-medium text-foreground”>{testimonial.name}</p>
+                    <p className=”text-xs text-muted-foreground”>{testimonial.city}</p>
                   </div>
                 </CardContent>
               </Card>
