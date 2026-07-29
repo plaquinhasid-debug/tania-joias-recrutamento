@@ -15,7 +15,7 @@ const TESTIMONIALS = [
     text: "Comecei revendendo para as colegas de trabalho e hoje já tenho uma clientela fiel. A renda extra mudou meu mês.",
   },
   {
-    name: "Juliana Alves",
+    name: "Sonia Aguiar Mauá",
     city: "Recife, PE",
     text: "O suporte da equipe é o que mais me surpreendeu. Sempre que tenho dúvida, alguém me responde rápido.",
   },
