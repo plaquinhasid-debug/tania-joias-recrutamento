@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
  */
 const TESTIMONIALS = [
   {
-    name: "Camila Rocha",
+    name: "Michely Mauá",
     city: "Belo Horizonte, MG",
     text: "Comecei revendendo para as colegas de trabalho e hoje já tenho uma clientela fiel. A renda extra mudou meu mês.",
   },
