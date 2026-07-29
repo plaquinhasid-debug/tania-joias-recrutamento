@@ -20,7 +20,7 @@ const TESTIMONIALS = [
     text: "O suporte da equipe é o que mais me surpreendeu. Sempre que tenho dúvida, alguém me responde rápido.",
   },
   {
-    name: "Patrícia Souza",
+    name: "Gislaine Mauá",
     city: "Porto Alegre, RS",
     text: "Nunca tinha vendido nada antes. O treinamento me deu segurança para começar e hoje vendo direto pelo Instagram.",
   },
