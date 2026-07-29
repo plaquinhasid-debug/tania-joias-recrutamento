@@ -6,15 +6,12 @@ import { Card, CardContent } from "@/components/ui/card"
 const TESTIMONIALS = [
   {
     name: "Michely Mauá",
-    city: "Belo Horizonte",
   },
   {
     name: "Sonia Aguiar Mauá",
-    city: "Recife",
   },
   {
     name: "Gislaine Mauá",
-    city: "Porto Alegre",
   },
 ]
 
@@ -42,10 +39,7 @@ export function Depoimentos() {
                     ))}
                   </div>
                   <div className="flex-1" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
-                    <p className="text-xs text-muted-foreground">{testimonial.city}</p>
-                  </div>
+                  <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
                 </CardContent>
               </Card>
             </Reveal>
