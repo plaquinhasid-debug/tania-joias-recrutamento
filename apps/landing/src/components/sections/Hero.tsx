@@ -54,7 +54,7 @@ export function Hero({ onOpenSofia }: HeroProps) {
           className="flex items-center justify-center"
         >
           <img
-            src="/assets/hero-semijoias.jpg"
+            src="/assets/hero-semijoias.png"
             alt="Semijoias"
             className="max-h-96 w-full rounded-lg object-cover shadow-lg"
           />

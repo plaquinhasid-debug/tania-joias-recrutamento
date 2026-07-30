@@ -1,6 +1,5 @@
 import { useState } from "react"
 
-import { Beneficios } from "@/components/sections/Beneficios"
 import { ChamadaFinal } from "@/components/sections/ChamadaFinal"
 import { ComoFunciona } from "@/components/sections/ComoFunciona"
 import { Depoimentos } from "@/components/sections/Depoimentos"
@@ -30,8 +29,7 @@ function App() {
 
       <main>
         <Hero onOpenSofia={openSofia} />
-        <QuemSomos />
-        <Beneficios />
+        <QuemSomos onOpenSofia={openSofia} />
         <ComoFunciona onOpenSofia={openSofia} />
         <QuantoPossoGanhar />
         <Depoimentos />

@@ -8,6 +8,11 @@ import { Reveal } from "@/components/Reveal"
 
 const FAQ_ITEMS = [
   {
+    question: "Preciso estar empregada para participar?",
+    answer:
+      "Hoje priorizamos candidatas que já estejam trabalhando, pois isso costuma indicar mais estabilidade para conciliar a revenda. Se não for o seu caso no momento, seu cadastro fica salvo para futuras oportunidades.",
+  },
+  {
     question: "Preciso investir algum valor para começar?",
     answer:
       "Não. Você não precisa comprar estoque antecipado para começar a revender com a Tania Joias.",
@@ -26,11 +31,6 @@ const FAQ_ITEMS = [
     question: "Como recebo o Mostruário de produtos?",
     answer:
       "Após a aprovação do seu cadastro, nossa equipe libera o acesso ao Mostruário completo e aos materiais de divulgação.",
-  },
-  {
-    question: "Preciso estar empregada para participar?",
-    answer:
-      "Hoje priorizamos candidatas que já estejam trabalhando, pois isso costuma indicar mais estabilidade para conciliar a revenda. Se não for o seu caso no momento, seu cadastro fica salvo para futuras oportunidades.",
   },
   {
     question: "Em quanto tempo recebo uma resposta após o cadastro?",

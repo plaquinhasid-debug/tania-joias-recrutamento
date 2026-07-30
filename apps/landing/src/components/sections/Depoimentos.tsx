@@ -5,13 +5,19 @@ import { Card, CardContent } from "@/components/ui/card"
 
 const TESTIMONIALS = [
   {
-    name: "Michely Mauá",
+    name: "Michely",
+    cidade: "Mauá",
+    text: "Comecei revendendo pra amigas só pra complementar a renda. Hoje já tenho uma carteira de clientes fiéis e o dinheiro extra virou parte importante do orçamento de casa.",
   },
   {
-    name: "Sonia Aguiar Mauá",
+    name: "Sonia Aguiar",
+    cidade: "Mauá",
+    text: "Eu não tinha experiência nenhuma com vendas. O treinamento me deu segurança pra começar, e em poucos meses já sentia a diferença no bolso, sem largar minhas outras atividades.",
   },
   {
-    name: "Gislaine Mauá",
+    name: "Gislaine",
+    cidade: "Mauá",
+    text: "O que mais me conquistou foi a flexibilidade. Encaixo as vendas no meu tempo livre, entre um compromisso e outro, e ainda assim vejo resultado todo mês.",
   },
 ]
 
@@ -38,8 +44,11 @@ export function Depoimentos() {
                       <Star key={i} className="size-4 fill-current" />
                     ))}
                   </div>
-                  <div className="flex-1" />
-                  <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
+                  <p className="flex-1 text-sm text-muted-foreground">{testimonial.text}</p>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{testimonial.name}</p>
+                    <p className="text-xs text-muted-foreground">Cidade/{testimonial.cidade}</p>
+                  </div>
                 </CardContent>
               </Card>
             </Reveal>
