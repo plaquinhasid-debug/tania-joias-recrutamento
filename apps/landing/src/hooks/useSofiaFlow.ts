@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import type { FinalizeCandidatePayload, FinalizeCandidateResponse } from "@tania-joias/shared"
 
 import { finalizeCandidate, insertAnswer } from "@/lib/api"
+import { getFbp, getOrBuildFbc, getOrCaptureFbclid } from "@/lib/tracking"
 import type { UtmParams } from "@/lib/tracking"
 import {
   SOFIA_INTRO_LINES,
@@ -95,6 +96,9 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
         utm_content: utm.utm_content,
+        fbp: getFbp(),
+        fbc: getOrBuildFbc(getOrCaptureFbclid()),
+        fbclid: getOrCaptureFbclid(),
       }
 
       try {
@@ -103,6 +107,10 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         setResult(response)
         setReachedEnd(true)
         setPhase("result")
+
+        if (response.status === "aprovada") {
+          window.fbq?.("track", "Lead", {}, { eventID: response.lead_id })
+        }
       } catch (err) {
         if (runToken.current !== token) return
         console.error("[sofia] falha ao finalizar candidatura", err)

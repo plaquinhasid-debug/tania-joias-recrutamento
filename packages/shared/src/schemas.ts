@@ -51,6 +51,9 @@ export const finalizeCandidatePayloadSchema = z.object({
   utm_medium: z.string().optional(),
   utm_campaign: z.string().optional(),
   utm_content: z.string().optional(),
+  fbp: z.string().optional(),
+  fbc: z.string().optional(),
+  fbclid: z.string().optional(),
 })
 
 export type FinalizeCandidatePayload = z.infer<typeof finalizeCandidatePayloadSchema>

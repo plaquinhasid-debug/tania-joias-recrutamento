@@ -9,6 +9,8 @@
 // contrato de entrada/saída.
 import { createClient } from "npm:@supabase/supabase-js@2"
 
+import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -35,6 +37,9 @@ type Payload = {
   utm_medium?: string
   utm_campaign?: string
   utm_content?: string
+  fbp?: string
+  fbc?: string
+  fbclid?: string
 }
 
 type IprPesos = {
@@ -147,6 +152,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "missing_required_fields" }, 400)
   }
 
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null
+  const userAgent = req.headers.get("user-agent")
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -199,6 +207,11 @@ Deno.serve(async (req) => {
       utm_medium: payload.utm_medium ?? null,
       utm_campaign: payload.utm_campaign ?? null,
       utm_content: payload.utm_content ?? null,
+      fbp: payload.fbp ?? null,
+      fbc: payload.fbc ?? null,
+      fbclid: payload.fbclid ?? null,
+      client_ip: clientIp,
+      client_user_agent: userAgent,
     })
     .select("id")
     .single()
@@ -246,6 +259,31 @@ Deno.serve(async (req) => {
       origem: payload.origem ?? null,
     })),
   )
+
+  if (status === "aprovada") {
+    const pixelId = Deno.env.get("META_PIXEL_ID")
+    const accessToken = Deno.env.get("META_CONVERSIONS_API_TOKEN")
+    if (pixelId && accessToken) {
+      try {
+        await sendMetaLeadEvent({
+          pixelId,
+          accessToken,
+          leadId: lead.id,
+          telefone: payload.telefone,
+          fbp: payload.fbp,
+          fbc: payload.fbc,
+          clientIp,
+          userAgent,
+        })
+        await supabase
+          .from("leads")
+          .update({ meta_lead_sent_at: new Date().toISOString() })
+          .eq("id", lead.id)
+      } catch (err) {
+        console.error("[finalize-candidate] falha ao enviar evento Lead ao Meta", err)
+      }
+    }
+  }
 
   return jsonResponse({
     lead_id: lead.id,

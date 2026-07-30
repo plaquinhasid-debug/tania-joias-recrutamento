@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -184,14 +186,20 @@ export type Database = {
         Row: {
           campanha: string | null
           cidade: string | null
+          client_ip: string | null
+          client_user_agent: string | null
           conversation_id: string | null
           created_at: string
           empresa_atual: string | null
           experiencia_vendas: boolean | null
+          fbc: string | null
+          fbclid: string | null
+          fbp: string | null
           id: string
           idade: number | null
           instagram: string | null
           ipr: number
+          meta_lead_sent_at: string | null
           nome: string
           objetivo: string | null
           observacoes: string | null
@@ -215,14 +223,20 @@ export type Database = {
         Insert: {
           campanha?: string | null
           cidade?: string | null
+          client_ip?: string | null
+          client_user_agent?: string | null
           conversation_id?: string | null
           created_at?: string
           empresa_atual?: string | null
           experiencia_vendas?: boolean | null
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
           id?: string
           idade?: number | null
           instagram?: string | null
           ipr?: number
+          meta_lead_sent_at?: string | null
           nome: string
           objetivo?: string | null
           observacoes?: string | null
@@ -246,14 +260,20 @@ export type Database = {
         Update: {
           campanha?: string | null
           cidade?: string | null
+          client_ip?: string | null
+          client_user_agent?: string | null
           conversation_id?: string | null
           created_at?: string
           empresa_atual?: string | null
           experiencia_vendas?: boolean | null
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
           id?: string
           idade?: number | null
           instagram?: string | null
           ipr?: number
+          meta_lead_sent_at?: string | null
           nome?: string
           objetivo?: string | null
           observacoes?: string | null

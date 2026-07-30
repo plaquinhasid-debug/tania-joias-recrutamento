@@ -79,6 +79,18 @@ export function useUpdateLead() {
       void queryClient.invalidateQueries({ queryKey: ["leads"] })
       void queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
+
+      if (data.status === "aprovada") {
+        // Avisa o Meta Conversions API sobre a aprovação manual (a lead pode
+        // ter caído em "análise" e só sido aprovada dias depois pela equipe,
+        // quando o Pixel do navegador já não está mais disponível). Fire-and-
+        // -forget: nunca deve travar a UI do Admin.
+        supabase.functions
+          .invoke("send-meta-lead-event", { body: { lead_id: data.id } })
+          .then(({ error }) => {
+            if (error) console.warn("[meta] falha ao enviar evento Lead", error)
+          })
+      }
     },
   })
 }
