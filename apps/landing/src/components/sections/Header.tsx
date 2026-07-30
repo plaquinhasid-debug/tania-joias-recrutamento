@@ -15,7 +15,10 @@ export function Header({ onOpenSofia }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <a href="#top" className="font-display text-xl font-semibold tracking-wide text-foreground">
+        <a
+          href="#top"
+          className="shrink-0 font-display text-lg font-semibold tracking-wide text-foreground sm:text-xl"
+        >
           Tania Joias
         </a>
 
@@ -31,8 +34,9 @@ export function Header({ onOpenSofia }: HeaderProps) {
           ))}
         </nav>
 
-        <Button variant="gold" size="sm" onClick={onOpenSofia} className="whitespace-nowrap">
-          Quero ser revendedora
+        <Button variant="gold" size="sm" onClick={onOpenSofia} className="shrink-0 whitespace-nowrap">
+          <span className="hidden sm:inline">Quero ser revendedora</span>
+          <span className="sm:hidden">Cadastre-se</span>
         </Button>
       </div>
     </header>
