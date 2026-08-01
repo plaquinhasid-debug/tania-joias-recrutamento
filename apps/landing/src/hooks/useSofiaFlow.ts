@@ -11,6 +11,7 @@ import {
   findNextStepIndex,
   type SofiaStep,
 } from "@/data/sofia-script"
+import { SofiaOrchestrator } from "@/orchestrator"
 import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
 
 /**
@@ -66,6 +67,14 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   const introStarted = useRef(false)
   // Protege chamadas assíncronas concorrentes (StrictMode / cliques rápidos / retry).
   const runToken = useRef(0)
+
+  // RFC-002: o Orquestrador só OBSERVA a conversa por fora — nunca decide
+  // nada, nunca pode alterar o que é perguntado ou como. Uma instância por
+  // conversa (sem persistência entre sessões, ver `orchestrator/Memory.ts`).
+  const orchestratorRef = useRef<SofiaOrchestrator | null>(null)
+  if (orchestratorRef.current === null) {
+    orchestratorRef.current = new SofiaOrchestrator(sessionId)
+  }
 
   const pushBotLine = useCallback(async (text: string, delayMs: number) => {
     setBotTyping(true)
@@ -154,7 +163,12 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
           })
         }
 
-        await pushBotLine(mensagem ?? SOFIA_STEPS[next].question, 450)
+        const textoPergunta = mensagem ?? SOFIA_STEPS[next].question
+        await pushBotLine(textoPergunta, 450)
+        orchestratorRef.current?.observe(
+          { type: "bot_message", texto: textoPergunta, origem: mensagem ? "ia" : "roteiro" },
+          { fase: "asking", answers: updatedAnswers },
+        )
         return
       }
 
@@ -163,6 +177,10 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         for (const line of SOFIA_REJECTION_LINES) {
           await pushBotLine(line, CLOSING_LINE_DELAY_MS)
         }
+        orchestratorRef.current?.observe(
+          { type: "conversation_ended", status: "concluida" },
+          { fase: "closing", answers: updatedAnswers },
+        )
         await runSubmission(updatedAnswers)
         return
       }
@@ -187,6 +205,11 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         }
       }
 
+      orchestratorRef.current?.observe(
+        { type: "conversation_ended", status: "concluida" },
+        { fase: "submitting", answers: updatedAnswers },
+      )
+
       await runSubmission(updatedAnswers)
     },
     [pushBotLine, runSubmission],
@@ -205,6 +228,11 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
       setAnswers(updatedAnswers)
       pushUserMessage(displayText)
 
+      orchestratorRef.current?.observe(
+        { type: "user_answer", campo: step.key, valor: value },
+        { fase: "asking", answers: updatedAnswers },
+      )
+
       void insertAnswer({
         sessionId,
         questionKey: step.key,
@@ -221,6 +249,8 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     if (introStarted.current) return
     introStarted.current = true
 
+    orchestratorRef.current?.observe({ type: "intro_started" }, { fase: "intro", answers: {} })
+
     void (async () => {
       for (const line of SOFIA_INTRO_LINES) {
         await pushBotLine(line, INTRO_LINE_DELAY_MS)
@@ -229,6 +259,10 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
       setStepIndex(first)
       setPhase("asking")
       await pushBotLine(SOFIA_STEPS[first].question, 400)
+      orchestratorRef.current?.observe(
+        { type: "bot_message", texto: SOFIA_STEPS[first].question, origem: "roteiro" },
+        { fase: "asking", answers: {} },
+      )
     })()
   }, [pushBotLine])
 
