@@ -25,6 +25,60 @@ export const PERFIL_COMERCIAL_LABEL: Record<PerfilComercial, string> = {
   alto: "Alto",
 }
 
+// Campos consultivos da análise expandida da Sofia (ver `ai_analysis` /
+// `supabase/functions/_shared/ai-analysis.ts`). Colunas `text` com CHECK
+// constraint no banco, não enums do Postgres — por isso os tipos e labels
+// vivem aqui como união literal, no mesmo espírito de PERFIL_COMERCIAL_LABEL.
+export type PerfilSugeridoIa = "baixo" | "medio" | "alto" | "excelente"
+export type PotencialEmpreendedor = "baixo" | "medio" | "alto" | "muito_alto"
+export type ProximaAcao = "ligar_imediatamente" | "enviar_whatsapp" | "analise_manual" | "aguardar"
+export type Sentimento = "muito_motivada" | "motivada" | "neutra" | "insegura" | "desmotivada"
+export type MotivacaoPrincipal =
+  | "renda_extra"
+  | "independencia_financeira"
+  | "sonho_pessoal"
+  | "flexibilidade"
+  | "empreender"
+  | "outro"
+
+export const PERFIL_SUGERIDO_IA_LABEL: Record<PerfilSugeridoIa, string> = {
+  baixo: "Baixo",
+  medio: "Médio",
+  alto: "Alto",
+  excelente: "Excelente",
+}
+
+export const POTENCIAL_EMPREENDEDOR_LABEL: Record<PotencialEmpreendedor, string> = {
+  baixo: "Baixo",
+  medio: "Médio",
+  alto: "Alto",
+  muito_alto: "Muito alto",
+}
+
+export const PROXIMA_ACAO_LABEL: Record<ProximaAcao, string> = {
+  ligar_imediatamente: "Ligar imediatamente",
+  enviar_whatsapp: "Enviar WhatsApp",
+  analise_manual: "Análise manual",
+  aguardar: "Aguardar",
+}
+
+export const SENTIMENTO_LABEL: Record<Sentimento, string> = {
+  muito_motivada: "Muito motivada",
+  motivada: "Motivada",
+  neutra: "Neutra",
+  insegura: "Insegura",
+  desmotivada: "Desmotivada",
+}
+
+export const MOTIVACAO_PRINCIPAL_LABEL: Record<MotivacaoPrincipal, string> = {
+  renda_extra: "Renda extra",
+  independencia_financeira: "Independência financeira",
+  sonho_pessoal: "Sonho pessoal",
+  flexibilidade: "Flexibilidade",
+  empreender: "Empreender",
+  outro: "Outro",
+}
+
 export const KANBAN_COLUMNS: { status: LeadStatus; label: string }[] = [
   { status: "novo", label: "Novo Lead" },
   { status: "em_analise", label: "Em Análise" },

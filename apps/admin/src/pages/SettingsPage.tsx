@@ -11,11 +11,28 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useCidadesAtendidas, useSaveCidadesAtendidas } from "@/hooks/useSettings"
+import {
+  useCidadesAtendidas,
+  useSaveCidadesAtendidas,
+  useSofiaIaAtiva,
+  useSaveSofiaIaAtiva,
+} from "@/hooks/useSettings"
 
 export default function SettingsPage() {
   const { data, isLoading, isError, refetch } = useCidadesAtendidas()
   const saveMutation = useSaveCidadesAtendidas()
+
+  const { data: sofiaIaAtiva, isLoading: sofiaIaLoading } = useSofiaIaAtiva()
+  const saveSofiaIaAtiva = useSaveSofiaIaAtiva()
+
+  async function handleToggleSofiaIa(checked: boolean) {
+    try {
+      await saveSofiaIaAtiva.mutateAsync(checked)
+      toast.success(checked ? "Análise por IA da Sofia ativada." : "Análise por IA da Sofia desativada.")
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
 
   const [restringir, setRestringir] = React.useState(false)
   const [lista, setLista] = React.useState<string[]>([])
@@ -61,6 +78,38 @@ export default function SettingsPage() {
         title="Configurações"
         description="Regras operacionais do painel administrativo."
       />
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>Sofia — Análise por IA</CardTitle>
+          <CardDescription>
+            Quando ativado, a Sofia usa a Anthropic (Claude) para gerar uma análise consultiva completa
+            de cada candidata (ICP, potencial empreendedor, probabilidade de sucesso, pontos fortes/atenção
+            etc.), visível no card "Análise da Sofia" ao abrir uma candidata. Quando desativado, o cadastro
+            funciona exatamente como hoje — regras determinísticas, sem chamadas de IA.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sofiaIaLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="sofia-ia-ativa">Análise por IA ativada</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Não afeta a aprovação/reprovação automática — isso continua pelas regras abaixo.
+                </p>
+              </div>
+              <Switch
+                id="sofia-ia-ativa"
+                checked={Boolean(sofiaIaAtiva)}
+                onCheckedChange={(checked) => void handleToggleSofiaIa(checked)}
+                disabled={saveSofiaIaAtiva.isPending}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {isError ? (
         <ErrorState onRetry={() => refetch()} />

@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { IprBreakdown } from "@/components/leads/IprBreakdown"
+import { SofiaAnalysisCard } from "@/components/leads/SofiaAnalysisCard"
 import { useLead, useLeadAnalysis, useLeadAnswers, useUpdateLead } from "@/hooks/useLeadDetail"
 import { formatDateTime, formatPhone, whatsappLink, whatsappLinkWithMessage } from "@/lib/format"
 import type { IprBreakdown as IprBreakdownType } from "@/types"
@@ -100,6 +101,14 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
             </SheetHeader>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
+              {analysisLoading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : (
+                <SofiaAnalysisCard analysis={analysis} />
+              )}
+
+              <Separator />
+
               <section>
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Perfil comercial</h3>
                 <div className="flex items-center gap-2">

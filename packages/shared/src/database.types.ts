@@ -17,45 +17,90 @@ export type Database = {
       ai_analysis: {
         Row: {
           created_at: string
+          grau_confianca_explicacao: string | null
+          grau_confianca_ia: number | null
+          icp_score: number | null
           id: string
           ipr_breakdown: Json | null
           ipr_score: number | null
           lead_id: string
           model: string
+          motivacao_principal: string | null
           perfil_comercial:
             | Database["public"]["Enums"]["perfil_comercial_enum"]
             | null
           perfil_motivo: string | null
+          perfil_sugerido_ia: string | null
+          pontos_atencao: string[] | null
+          pontos_fortes: string[] | null
+          potencial_empreendedor: string | null
+          probabilidade_sucesso: number | null
+          proxima_acao: string | null
           recomendacao: Database["public"]["Enums"]["recomendacao_enum"] | null
           resumo: string | null
+          resumo_comercial: string | null
+          resumo_comportamental: string | null
+          resumo_executivo: string | null
+          resumo_motivacional: string | null
+          sentimento: string | null
         }
         Insert: {
           created_at?: string
+          grau_confianca_explicacao?: string | null
+          grau_confianca_ia?: number | null
+          icp_score?: number | null
           id?: string
           ipr_breakdown?: Json | null
           ipr_score?: number | null
           lead_id: string
           model?: string
+          motivacao_principal?: string | null
           perfil_comercial?:
             | Database["public"]["Enums"]["perfil_comercial_enum"]
             | null
           perfil_motivo?: string | null
+          perfil_sugerido_ia?: string | null
+          pontos_atencao?: string[] | null
+          pontos_fortes?: string[] | null
+          potencial_empreendedor?: string | null
+          probabilidade_sucesso?: number | null
+          proxima_acao?: string | null
           recomendacao?: Database["public"]["Enums"]["recomendacao_enum"] | null
           resumo?: string | null
+          resumo_comercial?: string | null
+          resumo_comportamental?: string | null
+          resumo_executivo?: string | null
+          resumo_motivacional?: string | null
+          sentimento?: string | null
         }
         Update: {
           created_at?: string
+          grau_confianca_explicacao?: string | null
+          grau_confianca_ia?: number | null
+          icp_score?: number | null
           id?: string
           ipr_breakdown?: Json | null
           ipr_score?: number | null
           lead_id?: string
           model?: string
+          motivacao_principal?: string | null
           perfil_comercial?:
             | Database["public"]["Enums"]["perfil_comercial_enum"]
             | null
           perfil_motivo?: string | null
+          perfil_sugerido_ia?: string | null
+          pontos_atencao?: string[] | null
+          pontos_fortes?: string[] | null
+          potencial_empreendedor?: string | null
+          probabilidade_sucesso?: number | null
+          proxima_acao?: string | null
           recomendacao?: Database["public"]["Enums"]["recomendacao_enum"] | null
           resumo?: string | null
+          resumo_comercial?: string | null
+          resumo_comportamental?: string | null
+          resumo_executivo?: string | null
+          resumo_motivacional?: string | null
+          sentimento?: string | null
         }
         Relationships: [
           {

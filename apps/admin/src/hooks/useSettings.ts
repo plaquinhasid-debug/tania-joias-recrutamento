@@ -56,3 +56,48 @@ export function useSaveCidadesAtendidas() {
     },
   })
 }
+
+const SOFIA_IA_ATIVA_KEY = "sofia_ia_ativa"
+
+async function fetchSofiaIaAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", SOFIA_IA_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useSofiaIaAtiva() {
+  return useQuery({
+    queryKey: ["settings", SOFIA_IA_ATIVA_KEY],
+    queryFn: fetchSofiaIaAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveSofiaIaAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: SOFIA_IA_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            "Liga/desliga as camadas de IA (Claude) da Sofia: análise final expandida e reações contextuais na conversa. Quando desativado, comportamento idêntico ao roteiro fixo + resumo simples.",
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", SOFIA_IA_ATIVA_KEY], ativa)
+    },
+  })
+}
