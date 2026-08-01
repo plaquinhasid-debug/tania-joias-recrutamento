@@ -72,7 +72,11 @@ export interface AiAnalysisResult {
 }
 
 export const CLAUDE_MODEL = "claude-haiku-4-5-20251001"
-const REQUEST_TIMEOUT_MS = 8000
+// A análise expandida pede 16 campos obrigatórios (vários parágrafos de
+// texto) via tool-use — sai bem mais devagar que a versão simples original.
+// 8s (usado no Nível 1) estava expirando com frequência e derrubando pro
+// fallback determinístico silenciosamente. 20s dá margem confortável.
+const REQUEST_TIMEOUT_MS = 20000
 const ANTHROPIC_VERSION = "2023-06-01"
 
 const PERFIL_SUGERIDO_VALUES = ["baixo", "medio", "alto", "excelente"] as const
