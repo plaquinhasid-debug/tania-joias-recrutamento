@@ -3,13 +3,18 @@
 // Único ponto de escrita da tabela `leads` a partir da Landing Page.
 // Roda com a service role key (RLS não se aplica aqui), então é o lugar certo
 // para aplicar as regras de negócio de forma que o cliente nunca possa
-// fabricar um IPR ou status. É também o ponto de extensão preparado para uma
-// futura integração real com a OpenAI: hoje `gerarResumo`/`classificarPerfil`
-// são determinísticos; no futuro passam a chamar a OpenAI mantendo o mesmo
-// contrato de entrada/saída.
+// fabricar um IPR ou status.
+//
+// `decidirStatus`/`classificarPerfil` continuam 100% determinísticos (motor
+// de regras baseado no IPR) — isso decide aprovação/reprovação e nunca deve
+// depender de uma chamada externa. A Anthropic/Claude (ver `_shared/ai-analysis.ts`)
+// entra só depois, como enriquecimento best-effort do texto (`resumo`/
+// `perfil_motivo`); se falhar ou a chave não estiver configurada, cai no
+// texto determinístico de `gerarResumo`/`classificarPerfil` sem afetar nada.
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
+import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -178,9 +183,42 @@ Deno.serve(async (req) => {
   const { total: ipr, breakdown } = calcularIpr(payload, pesos, cidadeAtendida)
   const status = decidirStatus(payload.trabalha, ipr, thresholds)
   const { perfil, motivo } = classificarPerfil(payload.trabalha, ipr, thresholds)
-  const resumo = gerarResumo(payload, perfil)
   const recomendacao =
     status === "aprovada" ? "aprovar" : status === "reprovada" ? "reprovar" : "analise_manual"
+
+  // Fallback determinístico (sempre calculado). Se a candidata trabalha e a
+  // chave da Anthropic está configurada, tentamos substituir por uma análise
+  // real — o rótulo de perfil (`perfil`) e o `status` nunca mudam com isso,
+  // só o texto explicativo fica mais rico.
+  let resumo = gerarResumo(payload, perfil)
+  let motivoFinal = motivo
+  let analiseModel = "rules-engine-v1"
+
+  const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")
+  if (payload.trabalha && perfil && anthropicApiKey) {
+    try {
+      const ai = await generateAiAnalysis({
+        apiKey: anthropicApiKey,
+        nome: payload.nome,
+        cidade: payload.cidade,
+        idade: payload.idade,
+        profissao: payload.profissao,
+        empresaAtual: payload.empresa_atual,
+        experienciaVendas: payload.experiencia_vendas,
+        whatsapp: payload.whatsapp,
+        possuiInstagram: Boolean(payload.instagram),
+        tempoDisponivel: payload.tempo_disponivel,
+        objetivo: payload.objetivo,
+        perfilComercial: perfil,
+        ipr,
+      })
+      resumo = ai.resumo
+      motivoFinal = ai.perfilMotivo
+      analiseModel = CLAUDE_MODEL
+    } catch (err) {
+      console.error("[finalize-candidate] falha na análise IA, usando fallback determinístico", err)
+    }
+  }
 
   const { data: lead, error: leadError } = await supabase
     .from("leads")
@@ -224,11 +262,11 @@ Deno.serve(async (req) => {
     lead_id: lead.id,
     resumo,
     perfil_comercial: perfil,
-    perfil_motivo: motivo,
+    perfil_motivo: motivoFinal,
     ipr_score: ipr,
     ipr_breakdown: breakdown,
     recomendacao,
-    model: "rules-engine-v1",
+    model: analiseModel,
   })
 
   await supabase
