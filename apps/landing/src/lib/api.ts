@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import type { SofiaAnswers } from "@/types/sofia"
 import {
   finalizeCandidateResponseSchema,
   type Database,
@@ -111,7 +112,7 @@ interface SofiaReacaoParams {
   campo: string
   valor: string
   proximaPerguntaBase?: string
-  respostasAnteriores: Record<string, unknown>
+  respostasAnteriores: SofiaAnswers
 }
 
 const SOFIA_REACAO_TIMEOUT_MS = 6000
