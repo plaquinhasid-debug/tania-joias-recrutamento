@@ -16,6 +16,11 @@ import { createClient } from "npm:@supabase/supabase-js@2"
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
 
+// Profissões que costumam indicar bom encaixe como revendedora (círculo
+// social/atendimento ao público). Sinal positivo para a IA considerar, nunca
+// um filtro obrigatório — a Sofia deve reconhecer profissões semelhantes.
+const PROFISSOES_PREFERIDAS = ["Cabeleireira", "Professora", "Enfermeira", "Bancária"]
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -58,6 +63,8 @@ type IprPesos = {
 type IprThresholds = { aprovar: number; analise_min: number }
 
 type CidadesAtendidas = { restringir: boolean; lista: string[] }
+
+type SofiaIaAtiva = { ativa: boolean }
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -168,7 +175,7 @@ Deno.serve(async (req) => {
   const { data: settingsRows, error: settingsError } = await supabase
     .from("settings")
     .select("chave, valor")
-    .in("chave", ["ipr_pesos", "ipr_thresholds", "cidades_atendidas"])
+    .in("chave", ["ipr_pesos", "ipr_thresholds", "cidades_atendidas", "sofia_ia_ativa"])
 
   if (settingsError) {
     return jsonResponse({ error: "settings_fetch_failed", detail: settingsError.message }, 500)
@@ -178,6 +185,7 @@ Deno.serve(async (req) => {
   const pesos = settingsMap.ipr_pesos as IprPesos
   const thresholds = settingsMap.ipr_thresholds as IprThresholds
   const cidadesConfig = settingsMap.cidades_atendidas as CidadesAtendidas
+  const sofiaIaAtiva = Boolean((settingsMap.sofia_ia_ativa as SofiaIaAtiva | undefined)?.ativa)
 
   const cidadeAtendida = isCidadeAtendida(payload.cidade, cidadesConfig)
   const { total: ipr, breakdown } = calcularIpr(payload, pesos, cidadeAtendida)
@@ -186,16 +194,18 @@ Deno.serve(async (req) => {
   const recomendacao =
     status === "aprovada" ? "aprovar" : status === "reprovada" ? "reprovar" : "analise_manual"
 
-  // Fallback determinístico (sempre calculado). Se a candidata trabalha e a
-  // chave da Anthropic está configurada, tentamos substituir por uma análise
-  // real — o rótulo de perfil (`perfil`) e o `status` nunca mudam com isso,
-  // só o texto explicativo fica mais rico.
+  // Fallback determinístico (sempre calculado). Se a candidata trabalha, a
+  // flag `sofia_ia_ativa` está ligada e a chave da Anthropic está
+  // configurada, tentamos substituir por uma análise real — o rótulo de
+  // perfil (`perfil`) e o `status` nunca mudam com isso, só o texto
+  // explicativo e os campos consultivos abaixo ficam mais ricos.
   let resumo = gerarResumo(payload, perfil)
   let motivoFinal = motivo
   let analiseModel = "rules-engine-v1"
+  let analiseExpandida: Awaited<ReturnType<typeof generateAiAnalysis>> | null = null
 
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")
-  if (payload.trabalha && perfil && anthropicApiKey) {
+  if (payload.trabalha && perfil && sofiaIaAtiva && anthropicApiKey) {
     try {
       const ai = await generateAiAnalysis({
         apiKey: anthropicApiKey,
@@ -211,10 +221,15 @@ Deno.serve(async (req) => {
         objetivo: payload.objetivo,
         perfilComercial: perfil,
         ipr,
+        qualificacao: {
+          cidadesAtendidas: cidadesConfig.restringir ? cidadesConfig.lista : [],
+          profissoesPreferidas: PROFISSOES_PREFERIDAS,
+        },
       })
       resumo = ai.resumo
       motivoFinal = ai.perfilMotivo
       analiseModel = CLAUDE_MODEL
+      analiseExpandida = ai
     } catch (err) {
       console.error("[finalize-candidate] falha na análise IA, usando fallback determinístico", err)
     }
@@ -267,6 +282,21 @@ Deno.serve(async (req) => {
     ipr_breakdown: breakdown,
     recomendacao,
     model: analiseModel,
+    resumo_executivo: analiseExpandida?.resumoExecutivo ?? null,
+    resumo_comercial: analiseExpandida?.resumoComercial ?? null,
+    resumo_comportamental: analiseExpandida?.resumoComportamental ?? null,
+    resumo_motivacional: analiseExpandida?.resumoMotivacional ?? null,
+    icp_score: analiseExpandida?.icpScore ?? null,
+    perfil_sugerido_ia: analiseExpandida?.perfilSugeridoIa ?? null,
+    potencial_empreendedor: analiseExpandida?.potencialEmpreendedor ?? null,
+    probabilidade_sucesso: analiseExpandida?.probabilidadeSucesso ?? null,
+    grau_confianca_ia: analiseExpandida?.grauConfiancaIa ?? null,
+    grau_confianca_explicacao: analiseExpandida?.grauConfiancaExplicacao ?? null,
+    proxima_acao: analiseExpandida?.proximaAcao ?? null,
+    sentimento: analiseExpandida?.sentimento ?? null,
+    motivacao_principal: analiseExpandida?.motivacaoPrincipal ?? null,
+    pontos_fortes: analiseExpandida?.pontosFortes ?? null,
+    pontos_atencao: analiseExpandida?.pontosAtencao ?? null,
   })
 
   await supabase
