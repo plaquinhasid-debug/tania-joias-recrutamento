@@ -1,10 +1,13 @@
 /**
- * Memória do Orquestrador (RFC-002, fase 1).
+ * WorkingMemory (RFC-002 / RFC-003, ex-`Memory`).
  *
  * Armazena só os eventos da conversa ATUAL, em memória do processo do
  * browser — não persiste em nenhum lugar (nem `sessionStorage`, nem banco) e
- * não sobrevive a um refresh. Uma fase futura pode trocar a implementação
- * interna por algo persistente sem mudar o contrato público desta classe.
+ * não sobrevive a um refresh.
+ *
+ * A arquitetura está preparada para outros tipos de memória (ver
+ * `MemoryTypes.ts`), mas nesta fase só `WorkingMemory` tem implementação
+ * real — os demais existem apenas como interfaces.
  */
 import type { ConversationEvent } from "./types"
 
@@ -13,7 +16,7 @@ export interface MemoryEntry {
   event: ConversationEvent
 }
 
-export class Memory {
+export class WorkingMemory {
   private entries: MemoryEntry[] = []
 
   record(event: ConversationEvent): MemoryEntry {

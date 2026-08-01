@@ -165,7 +165,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
 
         const textoPergunta = mensagem ?? SOFIA_STEPS[next].question
         await pushBotLine(textoPergunta, 450)
-        orchestratorRef.current?.observe(
+        orchestratorRef.current?.processTurn(
           { type: "bot_message", texto: textoPergunta, origem: mensagem ? "ia" : "roteiro" },
           { fase: "asking", answers: updatedAnswers },
         )
@@ -177,7 +177,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         for (const line of SOFIA_REJECTION_LINES) {
           await pushBotLine(line, CLOSING_LINE_DELAY_MS)
         }
-        orchestratorRef.current?.observe(
+        orchestratorRef.current?.processTurn(
           { type: "conversation_ended", status: "concluida" },
           { fase: "closing", answers: updatedAnswers },
         )
@@ -205,7 +205,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         }
       }
 
-      orchestratorRef.current?.observe(
+      orchestratorRef.current?.processTurn(
         { type: "conversation_ended", status: "concluida" },
         { fase: "submitting", answers: updatedAnswers },
       )
@@ -228,7 +228,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
       setAnswers(updatedAnswers)
       pushUserMessage(displayText)
 
-      orchestratorRef.current?.observe(
+      orchestratorRef.current?.processTurn(
         { type: "user_answer", campo: step.key, valor: value },
         { fase: "asking", answers: updatedAnswers },
       )
@@ -249,7 +249,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     if (introStarted.current) return
     introStarted.current = true
 
-    orchestratorRef.current?.observe({ type: "intro_started" }, { fase: "intro", answers: {} })
+    orchestratorRef.current?.processTurn({ type: "intro_started" }, { fase: "intro", answers: {} })
 
     void (async () => {
       for (const line of SOFIA_INTRO_LINES) {
@@ -259,7 +259,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
       setStepIndex(first)
       setPhase("asking")
       await pushBotLine(SOFIA_STEPS[first].question, 400)
-      orchestratorRef.current?.observe(
+      orchestratorRef.current?.processTurn(
         { type: "bot_message", texto: SOFIA_STEPS[first].question, origem: "roteiro" },
         { fase: "asking", answers: {} },
       )

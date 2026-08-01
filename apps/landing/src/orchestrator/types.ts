@@ -1,11 +1,10 @@
 /**
- * Tipos do Orquestrador da Sofia (RFC-002).
+ * Tipos do Orquestrador da Sofia (RFC-002 / RFC-003).
  *
  * Fase atual: o Orquestrador só OBSERVA a conversa conduzida pelo roteiro
  * fixo (`sofia-script.ts` / `useSofiaFlow.ts`) — nunca decide nem altera o
- * que é perguntado. As ações estruturadas que ele devolve nesta fase são
- * sempre informativas (`type: "observe"`); os demais tipos de ação já estão
- * modelados aqui para as próximas fases, mas ainda não são emitidos.
+ * que é perguntado. O Plano e a Ação produzidos aqui são sempre
+ * informativos; a interface nunca os consome para decidir nada.
  */
 import type { SofiaAnswers, SofiaPhase } from "@/types/sofia"
 
@@ -24,8 +23,8 @@ export type ObjectiveId =
 export interface Objective {
   id: ObjectiveId
   label: string
-  /** Decide, a partir das respostas já coletadas, se este objetivo está concluído. */
-  isComplete: (answers: SofiaAnswers) => boolean
+  /** Decide, a partir do Contexto atual, se este objetivo está concluído. */
+  isComplete: (context: SofiaContext) => boolean
 }
 
 export interface ObjectiveStatus {
@@ -34,7 +33,7 @@ export interface ObjectiveStatus {
   complete: boolean
 }
 
-/** Dúvida ou objeção detectada na conversa — estrutura preparada, ainda não populada nesta fase. */
+/** Dúvida ou objeção detectada na conversa — estrutura preparada; a detecção em si ainda não está implementada. */
 export interface OpenConcern {
   id: string
   descricao: string
@@ -43,52 +42,79 @@ export interface OpenConcern {
 
 export type ConversationStatus = "em_andamento" | "concluida" | "abandonada"
 
-/** Snapshot imutável do estado da conversa num dado momento. */
+/**
+ * Estado TÉCNICO da conversa — fase da máquina de estados, última
+ * mensagem/pergunta, status. Não contém nenhuma informação sobre a
+ * candidata (isso vive em `SofiaContext`).
+ */
 export interface ConversationStateSnapshot {
   sessionId: string
   fase: SofiaPhase
   ultimaMensagem: string | null
   ultimaPergunta: string | null
-  objetivosConcluidos: ObjectiveStatus[]
-  objetivosPendentes: ObjectiveStatus[]
-  duvidasAbertas: OpenConcern[]
-  objecoes: OpenConcern[]
   status: ConversationStatus
   atualizadoEm: string
 }
 
-/** Diagnóstico do Planner — nesta fase é só informativo, nunca escolhe a próxima pergunta. */
-export interface PlannerDiagnosis {
+/**
+ * Tudo que a Sofia sabe sobre a candidata até agora — o "conhecimento de
+ * domínio" da conversa, separado do estado técnico. Cresce incrementalmente
+ * conforme as respostas chegam.
+ */
+export interface SofiaContext {
+  nome?: string
+  cidade?: string
+  profissao?: string
+  empresaAtual?: string
+  experienciaVendas?: boolean
+  possuiInstagram?: boolean
+  instagram?: string | null
+  whatsapp?: boolean
+  motivacao?: string
+  tempoDisponivel?: string
+  duvidasAbertas: OpenConcern[]
+  objecoes: OpenConcern[]
+}
+
+/**
+ * Plano produzido pelo Planner a partir do estado/contexto/objetivos
+ * atuais. Nesta fase é inteiramente determinístico (sem IA) e nunca é
+ * executado — só diagnostica e prioriza.
+ */
+export interface Plan {
+  proximoObjetivo: ObjectiveStatus | null
+  objetivosFuturos: ObjectiveStatus[]
+  itensPendentes: ObjectiveStatus[]
   objetivosConcluidos: ObjectiveStatus[]
-  objetivosPendentes: ObjectiveStatus[]
+  motivoPrioridade: string
+  observacoes: string[]
   /** 0-100, proporção de objetivos concluídos. */
   progresso: number
   prontoParaFinalizar: boolean
 }
 
 /**
- * Ação estruturada devolvida pelo Orquestrador para a interface. Nesta fase
- * só `"observe"` é de fato emitido — os demais valores já existem no tipo
- * para as próximas fases (pedir resposta ao modelo, pedir uma ferramenta,
- * escolher a próxima pergunta), sem uso real ainda.
+ * Ação estruturada devolvida pelo ActionEngine para o Orchestrator. Nesta
+ * fase nenhuma ação altera o comportamento da interface — o roteiro fixo
+ * continua sendo o único responsável por decidir o que é perguntado.
  */
-export type OrchestratorActionType = "observe" | "request_model_response" | "request_tool" | "ask_next"
+export type ActionType = "PERGUNTAR" | "RESPONDER_DUVIDA" | "CONTINUAR" | "FINALIZAR" | "AGUARDAR" | "OBSERVAR"
 
-export interface OrchestratorAction {
-  type: OrchestratorActionType
-  descricao: string
-  payload?: unknown
+export interface Action {
+  type: ActionType
+  reason: string
+  target?: ObjectiveId
 }
 
-/** Evento que a interface (`useSofiaFlow`) reporta ao Orquestrador. */
+/** Evento que a interface (`useSofiaFlow`) reporta ao Orquestrador a cada turno. */
 export type ConversationEvent =
   | { type: "intro_started" }
   | { type: "bot_message"; texto: string; origem: "roteiro" | "ia" }
   | { type: "user_answer"; campo: string; valor: unknown }
   | { type: "conversation_ended"; status: ConversationStatus }
 
-/** Contexto adicional necessário para reconstruir o estado a cada evento. */
-export interface ObserveContext {
+/** Entrada adicional que a interface fornece a cada turno para reconstruir estado/contexto. */
+export interface TurnInput {
   fase: SofiaPhase
   answers: SofiaAnswers
 }
