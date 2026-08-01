@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import type { FinalizeCandidatePayload, FinalizeCandidateResponse } from "@tania-joias/shared"
 
-import { finalizeCandidate, insertAnswer } from "@/lib/api"
+import { fetchSofiaReacao, finalizeCandidate, insertAnswer } from "@/lib/api"
 import { getFbp, getOrBuildFbc, getOrCaptureFbclid } from "@/lib/tracking"
 import type { UtmParams } from "@/lib/tracking"
 import {
@@ -11,7 +11,15 @@ import {
   findNextStepIndex,
   type SofiaStep,
 } from "@/data/sofia-script"
-import type { SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
+import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
+
+/**
+ * Campos onde a Sofia tenta uma reação contextual via IA (ver `sofia-reagir`)
+ * antes de seguir com o texto estático do roteiro. Escopo intencionalmente
+ * pequeno (2 pontos, não a cada pergunta) pra manter custo e latência baixos
+ * — só onde a reação realmente muda a percepção da conversa.
+ */
+const CAMPOS_COM_REACAO_CONTEXTUAL: ReadonlySet<SofiaAnswerKey> = new Set(["profissao", "objetivo"])
 
 const INTRO_LINE_DELAY_MS = 650
 const CLOSING_LINE_DELAY_MS = 700
@@ -124,13 +132,29 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   )
 
   const advanceAfterAnswer = useCallback(
-    async (updatedAnswers: SofiaAnswers, fromIndex: number) => {
+    async (updatedAnswers: SofiaAnswers, fromIndex: number, answeredKey: SofiaAnswerKey) => {
       const next = findNextStepIndex(fromIndex, updatedAnswers)
 
       if (next < SOFIA_STEPS.length) {
         setStepIndex(next)
         setPhase("asking")
-        await pushBotLine(SOFIA_STEPS[next].question, 450)
+
+        let mensagem: string | null = null
+        if (CAMPOS_COM_REACAO_CONTEXTUAL.has(answeredKey)) {
+          // Mantém o indicador "digitando" (e o input desabilitado) durante
+          // a busca da reação, pra não expor o input da próxima pergunta
+          // antes da Sofia "responder".
+          setBotTyping(true)
+          mensagem = await fetchSofiaReacao({
+            intent: "perguntar_proximo",
+            campo: answeredKey,
+            valor: String(updatedAnswers[answeredKey] ?? ""),
+            proximaPerguntaBase: SOFIA_STEPS[next].question,
+            respostasAnteriores: updatedAnswers,
+          })
+        }
+
+        await pushBotLine(mensagem ?? SOFIA_STEPS[next].question, 450)
         return
       }
 
@@ -141,6 +165,26 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         }
         await runSubmission(updatedAnswers)
         return
+      }
+
+      if (CAMPOS_COM_REACAO_CONTEXTUAL.has(answeredKey)) {
+        setBotTyping(true)
+        const mensagem = await fetchSofiaReacao({
+          intent: "fechar",
+          campo: answeredKey,
+          valor: String(updatedAnswers[answeredKey] ?? ""),
+          respostasAnteriores: updatedAnswers,
+        })
+        if (mensagem) {
+          await pushBotLine(mensagem, CLOSING_LINE_DELAY_MS)
+          // Sem essa pausa, o React batiza a troca de fase (asking →
+          // submitting) junto com o setMessages acima e a mensagem nunca
+          // chega a ser pintada na tela antes do ChatTranscript desmontar.
+          // Também dá um instante pra candidata realmente ler a despedida.
+          await wait(900)
+        } else {
+          setBotTyping(false)
+        }
       }
 
       await runSubmission(updatedAnswers)
@@ -168,7 +212,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         answerValue: String(displayText),
       })
 
-      void advanceAfterAnswer(updatedAnswers, stepIndex + 1)
+      void advanceAfterAnswer(updatedAnswers, stepIndex + 1, step.key)
     },
     [answers, pushUserMessage, sessionId, stepIndex, advanceAfterAnswer],
   )

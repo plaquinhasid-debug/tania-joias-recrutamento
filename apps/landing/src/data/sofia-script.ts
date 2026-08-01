@@ -17,10 +17,12 @@ export const SOFIA_INTRO_LINES = [
   "Leva menos de dois minutos.",
 ] as const
 
+// Texto oficial e imutável da regra "Você trabalha atualmente?" — nunca deve
+// ser gerado ou parafraseado por IA (definido explicitamente pela Tania).
 export const SOFIA_REJECTION_LINES = [
-  "Obrigado pelo interesse.",
-  "Hoje estamos priorizando candidatas que já estejam trabalhando.",
-  "Seu cadastro ficará salvo para futuras oportunidades.",
+  "Obrigada pela sinceridade.",
+  "Hoje estamos priorizando candidatas que já possuem uma atividade profissional.",
+  "Vou registrar seu interesse e esperamos poder conversar novamente em outra oportunidade.",
 ] as const
 
 export const SOFIA_APPROVED_LINES = [
@@ -114,19 +116,22 @@ export const SOFIA_STEPS: SofiaStep[] = [
     noLabel: "Não trabalho",
   },
   {
-    key: "empresa_atual",
-    kind: "text",
-    question: "Onde você trabalha?",
-    placeholder: "Nome da empresa",
-    schema: qualificacaoSchema.shape.empresa_atual,
-    skip: trabalhaFalso,
-  },
-  {
     key: "profissao",
     kind: "text",
     question: "Qual é a sua profissão?",
     placeholder: "Sua profissão",
     schema: qualificacaoSchema.shape.profissao,
+    skip: trabalhaFalso,
+  },
+  {
+    key: "empresa_atual",
+    kind: "text",
+    // Pergunta base — quando a IA contextual estiver ativa (`sofia_ia_ativa`),
+    // esta linha é substituída por uma variante que já reage à profissão
+    // informada no passo anterior (ver `useSofiaFlow.ts`/`sofia-reagir`).
+    question: "Onde você trabalha?",
+    placeholder: "Nome da empresa",
+    schema: qualificacaoSchema.shape.empresa_atual,
     skip: trabalhaFalso,
   },
   {

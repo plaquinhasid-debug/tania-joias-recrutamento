@@ -106,6 +106,39 @@ export async function startConversation({
   }
 }
 
+interface SofiaReacaoParams {
+  intent: "perguntar_proximo" | "fechar"
+  campo: string
+  valor: string
+  proximaPerguntaBase?: string
+  respostasAnteriores: Record<string, unknown>
+}
+
+const SOFIA_REACAO_TIMEOUT_MS = 6000
+
+/**
+ * Busca uma reação contextual da Sofia (Edge Function `sofia-reagir`), usada
+ * em só 2 pontos da conversa pra ela não soar como formulário. Nunca lança —
+ * qualquer falha, timeout ou flag desligada resulta em `null`, e quem chama
+ * cai no texto estático do roteiro (`sofia-script.ts`).
+ */
+export async function fetchSofiaReacao(params: SofiaReacaoParams): Promise<string | null> {
+  try {
+    const invokePromise = supabase.functions.invoke("sofia-reagir", { body: params })
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("sofia-reagir timeout")), SOFIA_REACAO_TIMEOUT_MS)
+    })
+    const { data, error } = await Promise.race([invokePromise, timeoutPromise])
+    if (error) throw error
+
+    const mensagem = (data as { mensagem?: unknown } | null)?.mensagem
+    return typeof mensagem === "string" && mensagem.trim() ? mensagem.trim() : null
+  } catch (err) {
+    console.warn("[sofia] falha ao buscar reação contextual, usando texto padrão", err)
+    return null
+  }
+}
+
 /**
  * Chama a Edge Function `finalize-candidate`, que calcula o IPR e decide o
  * status do lead server-side. Esta é a ÚNICA chamada que pode lançar — o
