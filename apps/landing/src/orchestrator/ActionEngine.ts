@@ -1,45 +1,35 @@
 /**
- * ActionEngine (RFC-003).
+ * ActionEngine (RFC-003 → RFC-005).
  *
- * "O Action Engine executa": recebe um Plano (+ estado/contexto) e decide
- * qual Ação estruturada é a correta — nunca texto, nunca decide sozinho o
- * que fazer além de mapear o plano para um tipo de ação.
+ * Mudança de responsabilidade na RFC-005: até a RFC-003, este módulo
+ * decidia sozinho o que fazer a partir do Plano. A partir da RFC-005,
+ * DECIDIR passou a ser trabalho do `DecisionEngine` (com base na Intenção
+ * classificada) — o ActionEngine só EXECUTA a Decisão recebida, ou seja,
+ * resolve os detalhes concretos que faltam pra ela virar uma Ação pronta.
  *
- * Nesta fase nenhuma ação é de fato executada pela interface — o roteiro
- * fixo continua respondendo por tudo que a candidata vê. Este módulo só
- * calcula qual seria a ação, para os logs/diagnóstico.
+ * Nesta fase o único detalhe que precisa ser resolvido é o `target` de um
+ * `CONTINUE_FLOW` (qual objetivo perguntar a seguir) — lido do Plano, já
+ * que a Decision em si não carrega isso (ver RFC-005). Para os demais tipos
+ * de decisão, a Ação é essencially a Decisão repassada adiante.
  *
- * Este módulo NÃO tem nenhuma relação com o mecanismo de reação por IA já
- * existente (`sofia-reagir` / Fase D) — são coisas completamente separadas.
+ * Continua sem consultar IA, banco ou Tool — e sem nenhuma relação com o
+ * mecanismo de reação por IA já existente (`sofia-reagir` / Fase D).
  */
-import type { Action, ConversationStateSnapshot, Plan, SofiaContext } from "./types"
+import type { Action, Decision, Plan } from "./types"
 
-export function decideAction(plan: Plan, state: ConversationStateSnapshot, context: SofiaContext): Action {
-  if (state.status !== "em_andamento") {
-    return { type: "FINALIZAR", reason: `Conversa com status "${state.status}".` }
-  }
-
-  if (state.fase === "submitting") {
-    return { type: "AGUARDAR", reason: "Aguardando o processamento final da candidatura." }
-  }
-
-  if (context.duvidasAbertas.length > 0) {
+export function executeDecision(decision: Decision, plan: Plan): Action {
+  if (decision.type === "CONTINUE_FLOW" && plan.proximoObjetivo) {
     return {
-      type: "RESPONDER_DUVIDA",
-      reason: `${context.duvidasAbertas.length} dúvida(s) em aberto (detecção ainda não implementada nesta fase).`,
+      type: decision.type,
+      reason: decision.reason,
+      target: plan.proximoObjetivo.id,
+      metadata: decision.metadata,
     }
   }
 
-  if (plan.prontoParaFinalizar) {
-    return {
-      type: "CONTINUAR",
-      reason: "Todos os objetivos rastreados foram concluídos; o roteiro fixo decide o encerramento.",
-    }
+  return {
+    type: decision.type,
+    reason: decision.reason,
+    metadata: decision.metadata,
   }
-
-  if (plan.proximoObjetivo) {
-    return { type: "PERGUNTAR", target: plan.proximoObjetivo.id, reason: plan.motivoPrioridade }
-  }
-
-  return { type: "OBSERVAR", reason: "Nenhuma ação aplicável nesta fase." }
 }

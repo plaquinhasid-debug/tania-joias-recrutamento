@@ -5,7 +5,10 @@ export { buildConversationState } from "./ConversationState"
 export type { BuildConversationStateParams } from "./ConversationState"
 export { buildContext } from "./Context"
 export { createPlan, formatPlan } from "./Planner"
-export { decideAction } from "./ActionEngine"
+export { classifyIntent } from "./IntentClassifier"
+export { decide } from "./DecisionEngine"
+export type { DecisionInput } from "./DecisionEngine"
+export { executeDecision } from "./ActionEngine"
 export { WorkingMemory } from "./WorkingMemory"
 export type { MemoryEntry } from "./WorkingMemory"
 export type { ConversationMemory, BusinessMemory, LongTermMemory } from "./MemoryTypes"
@@ -33,10 +36,13 @@ export type {
 
 export type {
   Action,
-  ActionType,
   ConversationEvent,
   ConversationStateSnapshot,
   ConversationStatus,
+  Decision,
+  DecisionType,
+  Intent,
+  IntentType,
   Objective,
   ObjectiveId,
   ObjectiveStatus,

@@ -1,5 +1,5 @@
 /**
- * SofiaOrchestrator (RFC-002 / RFC-003).
+ * SofiaOrchestrator (RFC-002 / RFC-003 / RFC-005).
  *
  * O "cérebro" da Sofia em construção. Ele COORDENA os demais módulos — nunca
  * toma decisão de negócio, nunca gera texto, nunca calcula regras, nunca
@@ -7,18 +7,23 @@
  * comportamento visível da conversa: o roteiro fixo (`sofia-script.ts`)
  * continua sendo o único responsável por decidir o que é perguntado.
  *
- * Ciclo de cada turno (`processTurn`):
+ * Ciclo de cada turno (`processTurn`, RFC-005):
  *   evento recebido → WorkingMemory atualizada → Context atualizado →
  *   ConversationState atualizado → Objetivos reavaliados → Planner gera
- *   Plano → ActionEngine gera Ação → Ação devolvida para quem chamou
- *   (a interface ignora o valor de retorno nesta fase).
+ *   Plano → IntentClassifier classifica a intenção → DecisionEngine decide
+ *   → ActionEngine executa a decisão → Ação devolvida para quem chamou (a
+ *   interface ignora o valor de retorno nesta fase — AIGateway e ToolEngine
+ *   continuam fora do ciclo, nenhum dos dois é chamado).
  *
  * Cada instância representa UMA conversa (sem persistência entre sessões —
  * ver `WorkingMemory.ts` e `MemoryTypes.ts`).
  */
-import { decideAction } from "./ActionEngine"
+import { executeDecision } from "./ActionEngine"
 import { buildConversationState } from "./ConversationState"
 import { buildContext } from "./Context"
+import { decide } from "./DecisionEngine"
+import { createLogger } from "./devLog"
+import { classifyIntent } from "./IntentClassifier"
 import { evaluateObjectives } from "./Objectives"
 import { createPlan, formatPlan } from "./Planner"
 import { WorkingMemory } from "./WorkingMemory"
@@ -26,16 +31,18 @@ import type {
   Action,
   ConversationEvent,
   ConversationStateSnapshot,
+  Decision,
+  Intent,
   Plan,
   SofiaContext,
   TurnInput,
 } from "./types"
 
-const isDev = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV)
+const log = createLogger("[Sofia][Orchestrator]")
+const logIntent = createLogger("[IntentClassifier]")
+const logDecision = createLogger("[DecisionEngine]")
 
-function log(...args: unknown[]): void {
-  if (isDev) console.log("[Sofia][Orchestrator]", ...args)
-}
+const INTENT_NEUTRO: Intent = { type: "UNKNOWN", confidence: 1, reason: "Nenhum turno processado ainda." }
 
 export class SofiaOrchestrator {
   private readonly workingMemory = new WorkingMemory()
@@ -43,6 +50,8 @@ export class SofiaOrchestrator {
   private state: ConversationStateSnapshot
   private context: SofiaContext
   private plan: Plan
+  private intent: Intent
+  private decision: Decision
   private lastAction: Action
 
   constructor(sessionId: string) {
@@ -57,7 +66,15 @@ export class SofiaOrchestrator {
     })
     const evaluation = evaluateObjectives(this.context)
     this.plan = createPlan(evaluation)
-    this.lastAction = decideAction(this.plan, this.state, this.context)
+    this.intent = INTENT_NEUTRO
+    this.decision = decide({
+      intent: this.intent,
+      plan: this.plan,
+      context: this.context,
+      state: this.state,
+      objectivesEvaluation: evaluation,
+    })
+    this.lastAction = executeDecision(this.decision, this.plan)
   }
 
   /**
@@ -101,13 +118,30 @@ export class SofiaOrchestrator {
       this.plan = createPlan(evaluation)
       log("Plano criado:\n" + formatPlan(this.plan))
 
-      this.lastAction = decideAction(this.plan, this.state, this.context)
+      this.intent = classifyIntent(event, this.context, this.state, this.plan)
+      logIntent("Mensagem:", ultimaMensagem)
+      logIntent("Intenção:", this.intent.type)
+      logIntent("Confiança:", this.intent.confidence)
+
+      this.decision = decide({
+        intent: this.intent,
+        plan: this.plan,
+        context: this.context,
+        state: this.state,
+        objectivesEvaluation: evaluation,
+      })
+      logDecision("Plano:", this.plan)
+      logDecision("Intenção:", this.intent.type)
+      logDecision("Decisão:", this.decision.type)
+      logDecision("Motivo:", this.decision.reason)
+
+      this.lastAction = executeDecision(this.decision, this.plan)
       log("Ação gerada:", this.lastAction)
 
       return this.lastAction
     } catch (err) {
       console.error("[Sofia][Orchestrator] falha ao processar o turno (ignorada, sem impacto na conversa)", err)
-      return { type: "OBSERVAR", reason: "Falha ao processar o turno (ignorada)." }
+      return { type: "WAIT", reason: "Falha ao processar o turno (ignorada)." }
     }
   }
 
@@ -121,6 +155,14 @@ export class SofiaOrchestrator {
 
   getPlan(): Plan {
     return this.plan
+  }
+
+  getIntent(): Intent {
+    return this.intent
+  }
+
+  getDecision(): Decision {
+    return this.decision
   }
 
   getLastAction(): Action {

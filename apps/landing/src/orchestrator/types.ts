@@ -1,10 +1,10 @@
 /**
- * Tipos do Orquestrador da Sofia (RFC-002 / RFC-003).
+ * Tipos do Orquestrador da Sofia (RFC-002 / RFC-003 / RFC-005).
  *
  * Fase atual: o Orquestrador só OBSERVA a conversa conduzida pelo roteiro
  * fixo (`sofia-script.ts` / `useSofiaFlow.ts`) — nunca decide nem altera o
- * que é perguntado. O Plano e a Ação produzidos aqui são sempre
- * informativos; a interface nunca os consome para decidir nada.
+ * que é perguntado. Intent, Plano, Decision e Ação produzidos aqui são
+ * sempre informativos; a interface nunca os consome para decidir nada.
  */
 import type { SofiaAnswers, SofiaPhase } from "@/types/sofia"
 
@@ -94,16 +94,67 @@ export interface Plan {
 }
 
 /**
- * Ação estruturada devolvida pelo ActionEngine para o Orchestrator. Nesta
- * fase nenhuma ação altera o comportamento da interface — o roteiro fixo
- * continua sendo o único responsável por decidir o que é perguntado.
+ * Intenção estruturada devolvida pelo IntentClassifier (RFC-005) — nunca
+ * texto, nunca resposta. Totalmente determinística nesta fase (regras
+ * simples, sem IA).
  */
-export type ActionType = "PERGUNTAR" | "RESPONDER_DUVIDA" | "CONTINUAR" | "FINALIZAR" | "AGUARDAR" | "OBSERVAR"
+export type IntentType =
+  | "GREETING"
+  | "ANSWER"
+  | "QUESTION"
+  | "OBJECTION"
+  | "DOUBT"
+  | "SMALL_TALK"
+  | "CONFIRMATION"
+  | "NEGATION"
+  | "END_CONVERSATION"
+  | "UNKNOWN"
 
+export interface Intent {
+  type: IntentType
+  /** 0-1. */
+  confidence: number
+  reason: string
+}
+
+/**
+ * Decisão estruturada devolvida pelo DecisionEngine (RFC-005) — o que
+ * deveria acontecer a seguir, nunca como fazer isso. Nesta fase não é
+ * executada por ninguém; o roteiro fixo continua no comando de verdade.
+ */
+export type DecisionType =
+  | "CONTINUE_FLOW"
+  | "ANSWER_WITH_TOOL"
+  | "CALL_AI"
+  | "REGISTER_OBJECTION"
+  | "REGISTER_DOUBT"
+  | "FINALIZE"
+  | "WAIT"
+  | "IGNORE"
+
+export interface Decision {
+  type: DecisionType
+  reason: string
+  /** 0-1 — herdada da confiança do Intent que originou esta decisão. */
+  confidence: number
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Ação estruturada devolvida pelo ActionEngine (RFC-003 → RFC-005). A
+ * partir da RFC-005 o ActionEngine deixou de decidir (isso é do
+ * DecisionEngine) e passou a só EXECUTAR uma Decision — por isso `Action`
+ * reaproveita o mesmo vocabulário fechado de `DecisionType` em vez de ter um
+ * vocabulário próprio; o único valor concreto que o ActionEngine resolve é o
+ * `target` (lido do Plano), quando aplicável. Nenhuma ação altera o
+ * comportamento da interface — o roteiro fixo continua sendo o único
+ * responsável por decidir o que é perguntado.
+ */
 export interface Action {
-  type: ActionType
+  type: DecisionType
   reason: string
   target?: ObjectiveId
+  metadata?: Record<string, unknown>
 }
 
 /** Evento que a interface (`useSofiaFlow`) reporta ao Orquestrador a cada turno. */
