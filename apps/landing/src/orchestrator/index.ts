@@ -33,6 +33,20 @@ export type {
   ProductsTool,
   SettingsTool,
 } from "./tools/types"
+export { KnowledgeTool } from "./tools/KnowledgeTool"
+
+// Knowledge Engine (RFC-006) — localiza conhecimento institucional estruturado.
+export { KnowledgeEngine, createDefaultKnowledgeEngine } from "./knowledge/KnowledgeEngine"
+export { InMemoryKnowledgeRepository } from "./knowledge/KnowledgeRepository"
+export type { KnowledgeRepository } from "./knowledge/KnowledgeRepository"
+export { SEED_KNOWLEDGE_DOCUMENTS } from "./knowledge/seedDocuments"
+export { KNOWLEDGE_CATEGORIES } from "./knowledge/types"
+export type {
+  KnowledgeCategory,
+  KnowledgeDocument,
+  KnownKnowledgeCategory,
+  KnowledgeSearchQuery,
+} from "./knowledge/types"
 
 export type {
   Action,
