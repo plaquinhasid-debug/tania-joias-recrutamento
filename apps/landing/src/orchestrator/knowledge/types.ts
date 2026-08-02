@@ -36,6 +36,18 @@ export type KnownKnowledgeCategory = (typeof KNOWLEDGE_CATEGORIES)[number]
 /** Aceita as categorias conhecidas (autocomplete) ou qualquer string nova. */
 export type KnowledgeCategory = KnownKnowledgeCategory | (string & {})
 
+/**
+ * Trava estrutural de visibilidade (adicionada a pedido explícito, ver
+ * relatório da sessão): `"public"` pode ser retornado por busca e usado num
+ * prompt de IA; `"internal"` NUNCA pode — mesmo que alguém carregue um
+ * documento interno no repositório por engano no futuro, o `KnowledgeEngine`
+ * filtra por padrão em TODO método de leitura (`search`, `findById`,
+ * `listDocuments`, `searchByQuestion`), não só nos que "parecem" busca. Só
+ * sai um documento interno se o chamador passar `{ includeInternal: true }`
+ * explicitamente — nenhum ponto do FEATURE-003/AIGateway planejado faz isso.
+ */
+export type KnowledgeVisibility = "public" | "internal"
+
 export interface KnowledgeDocument {
   id: string
   titulo: string
@@ -46,6 +58,8 @@ export interface KnowledgeDocument {
   palavrasChave: string[]
   /** Maior = mais relevante quando vários documentos batem na mesma busca. */
   prioridade: number
+  /** Ver `KnowledgeVisibility` — campo obrigatório de propósito, não tem default implícito. */
+  visibility: KnowledgeVisibility
   versao: number
   ativo: boolean
   criadoEm: string
@@ -60,4 +74,6 @@ export interface KnowledgeSearchQuery {
   palavrasChave?: string[]
   /** Máximo de documentos retornados, já ordenados por prioridade. */
   limite?: number
+  /** `true` inclui documentos `visibility: "internal"` no resultado — opt-in explícito, nunca o padrão. */
+  includeInternal?: boolean
 }

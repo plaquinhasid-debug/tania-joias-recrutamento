@@ -18,11 +18,13 @@ export const SOFIA_INTRO_LINES = [
 ] as const
 
 // Texto oficial e imutável da regra "Você trabalha atualmente?" — nunca deve
-// ser gerado ou parafraseado por IA (definido explicitamente pela Tania).
+// ser gerado ou parafraseado por IA. Definido pelo Antonio (proprietário),
+// ver `docs/knowledge/COM-002-recrutamento.md` v1.1 ("Critério de
+// reprovação" — desempregada). Verbatim, sem paráfrase — só dividido em 2
+// linhas pra caber no formato de bolhas de chat já usado no roteiro.
 export const SOFIA_REJECTION_LINES = [
-  "Obrigada pela sinceridade.",
-  "Hoje estamos priorizando candidatas que já possuem uma atividade profissional.",
-  "Vou registrar seu interesse e esperamos poder conversar novamente em outra oportunidade.",
+  "No momento, um dos requisitos para ser revendedora é estar trabalhando (empresa, escola, hospital) ou atuar como cabeleireira em salão de beleza.",
+  "Por esse motivo, não conseguimos seguir com sua candidatura agora — mas você pode se candidatar novamente assim que essa situação mudar.",
 ] as const
 
 export const SOFIA_APPROVED_LINES = [

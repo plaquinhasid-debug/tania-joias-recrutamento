@@ -18,13 +18,16 @@
  * anterior de não usar gênero/número de filhos como critério, por risco de
  * discriminação).
  *
- * AINDA DELIBERADAMENTE OMITIDO: a seção "Critério de reprovação" do
- * COM-002 v1.1 (só resta "desempregada", já sem o conflito de
- * discriminação) continua fora daqui — o próprio documento marca isso como
- * "uso interno, não expor diretamente à candidata", e a mensagem exata de
- * reprovação ainda está pendente de definição. A informação positiva
- * equivalente ("estar trabalhando") já está em `com-002-elegibilidade`,
- * então nenhuma informação útil pra candidata fica de fora.
+ * TODOS os documentos abaixo são `visibility: "public"` — é conteúdo
+ * seguro pra candidata ler ou pra entrar num prompt de IA. A seção
+ * "Critério de reprovação" do COM-002 v1.1 (só resta "desempregada")
+ * continua fora daqui — o próprio documento marca isso como "uso interno,
+ * não expor diretamente à candidata", e a mensagem exata de reprovação já
+ * foi definida e vive em `apps/landing/src/data/sofia-script.ts`
+ * (`SOFIA_REJECTION_LINES`), fora do KnowledgeEngine — é texto hardcoded do
+ * roteiro, nunca passa por IA. A informação positiva equivalente ("estar
+ * trabalhando") já está em `com-002-elegibilidade`, então nenhuma
+ * informação útil pra candidata fica de fora.
  */
 import type { KnowledgeDocument } from "./types"
 
@@ -40,6 +43,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["consignacao", "mostruario", "ciclo"],
     palavrasChave: ["consignacao", "mostruario", "prazo", "30 dias", "acerto", "devolucao", "pagar antes", "adiantado"],
     prioridade: 9,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,
@@ -54,6 +58,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["comissao", "ganhos"],
     palavrasChave: ["comissao", "porcentagem", "quanto ganho", "tabela", "faixa", "valor vendido"],
     prioridade: 10,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,
@@ -68,6 +73,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["garantia", "prazo"],
     palavrasChave: ["garantia", "defeito", "prazo de garantia", "anel", "colar", "brinco", "quanto tempo"],
     prioridade: 8,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,
@@ -82,6 +88,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["elegibilidade", "requisitos"],
     palavrasChave: ["requisitos", "posso ser revendedora", "cidade atendida", "idade minima", "precisa trabalhar", "ribeirao pires"],
     prioridade: 9,
+    visibility: "public",
     versao: 2,
     ativo: true,
     criadoEm: AGORA,
@@ -96,6 +103,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["cadastro", "processo"],
     palavrasChave: ["como me inscrevo", "cadastro", "proximo passo", "depois que eu preencher"],
     prioridade: 6,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,
@@ -110,6 +118,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["troca", "defeito", "frete"],
     palavrasChave: ["defeito", "troca", "peca quebrada", "devolver defeito", "frete"],
     prioridade: 7,
+    visibility: "public",
     versao: 2,
     ativo: true,
     criadoEm: AGORA,
@@ -123,6 +132,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["garantia", "exclusao"],
     palavrasChave: ["o que nao e garantia", "mau uso", "oxidacao", "quebrou", "nao cobre"],
     prioridade: 6,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,
@@ -137,6 +147,7 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     tags: ["primeiro mostruario", "entrega"],
     palavrasChave: ["primeiro mostruario", "deposito", "caucao", "quanto tempo demora", "como recebo", "entrega", "motoboy"],
     prioridade: 7,
+    visibility: "public",
     versao: 1,
     ativo: true,
     criadoEm: AGORA,

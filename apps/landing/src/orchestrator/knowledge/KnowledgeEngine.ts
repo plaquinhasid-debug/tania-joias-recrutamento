@@ -44,7 +44,13 @@ export class KnowledgeEngine {
     const start = Date.now()
     const documentos = await this.repository.getAll()
 
-    let resultado = documentos
+    // Trava estrutural de visibilidade — SEMPRE aplicada primeiro, antes de
+    // qualquer outro filtro. `includeInternal` precisa ser passado de forma
+    // explícita e deliberada; sem ele, um documento "internal" nunca chega
+    // nem à etapa de filtro por categoria/tags/texto, muito menos ao
+    // resultado final.
+    const ocultados = query.includeInternal ? 0 : documentos.filter((doc) => doc.visibility === "internal").length
+    let resultado = query.includeInternal ? documentos : documentos.filter((doc) => doc.visibility === "public")
 
     if (query.categoria) {
       resultado = resultado.filter((doc) => doc.categoria === query.categoria)
@@ -81,6 +87,9 @@ export class KnowledgeEngine {
     log("Categoria:", query.categoria ?? "(todas)")
     log("Tags:", query.tags ?? [])
     log("Quantidade encontrada:", resultado.length)
+    if (ocultados > 0) {
+      log(`Documentos internos ocultados: ${ocultados} (includeInternal não foi solicitado).`)
+    }
     log(`Tempo: ${Date.now() - start}ms`)
 
     return resultado
@@ -98,12 +107,22 @@ export class KnowledgeEngine {
     return this.search({ palavrasChave })
   }
 
-  async findById(id: string): Promise<KnowledgeDocument | null> {
-    return this.repository.getById(id)
+  /** Mesma trava de `search()`: um documento `"internal"` só volta se `includeInternal: true` for passado explicitamente. */
+  async findById(id: string, options?: { includeInternal?: boolean }): Promise<KnowledgeDocument | null> {
+    const documento = await this.repository.getById(id)
+    if (!documento) return null
+    if (documento.visibility === "internal" && !options?.includeInternal) {
+      log(`Documento "${id}" é internal e includeInternal não foi solicitado — ocultado.`)
+      return null
+    }
+    return documento
   }
 
-  async listDocuments(): Promise<KnowledgeDocument[]> {
-    return this.repository.getAll()
+  /** Mesma trava de `search()`. */
+  async listDocuments(options?: { includeInternal?: boolean }): Promise<KnowledgeDocument[]> {
+    const documentos = await this.repository.getAll()
+    if (options?.includeInternal) return documentos
+    return documentos.filter((doc) => doc.visibility === "public")
   }
 
   /**
@@ -114,7 +133,11 @@ export class KnowledgeEngine {
    * separadamente, unindo os resultados e ranqueando por quantas palavras
    * diferentes bateram em cada documento (desempate por prioridade).
    */
-  async searchByQuestion(pergunta: string, limite = 3): Promise<KnowledgeDocument[]> {
+  async searchByQuestion(
+    pergunta: string,
+    limite = 3,
+    options?: { includeInternal?: boolean },
+  ): Promise<KnowledgeDocument[]> {
     const start = Date.now()
     const keywords = extractKeywords(pergunta)
 
@@ -125,7 +148,7 @@ export class KnowledgeEngine {
 
     const pontosPorId = new Map<string, { documento: KnowledgeDocument; pontos: number }>()
     for (const keyword of keywords) {
-      const encontrados = await this.search({ texto: keyword })
+      const encontrados = await this.search({ texto: keyword, includeInternal: options?.includeInternal })
       for (const documento of encontrados) {
         const atual = pontosPorId.get(documento.id)
         if (atual) {
