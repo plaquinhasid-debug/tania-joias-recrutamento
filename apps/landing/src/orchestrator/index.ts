@@ -51,6 +51,7 @@ export type {
 export type {
   Action,
   ConversationEvent,
+  ConversationOutcome,
   ConversationStateSnapshot,
   ConversationStatus,
   Decision,
@@ -61,6 +62,7 @@ export type {
   ObjectiveId,
   ObjectiveStatus,
   OpenConcern,
+  OrchestratorErrorCode,
   Plan,
   SofiaContext,
   TurnInput,

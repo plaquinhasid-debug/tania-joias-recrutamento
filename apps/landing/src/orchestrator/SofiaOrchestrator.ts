@@ -1,5 +1,5 @@
 /**
- * SofiaOrchestrator (RFC-002 / RFC-003 / RFC-005).
+ * SofiaOrchestrator (RFC-002 / RFC-003 / RFC-005 / RFC-008).
  *
  * O "cérebro" da Sofia em construção. Ele COORDENA os demais módulos — nunca
  * toma decisão de negócio, nunca gera texto, nunca calcula regras, nunca
@@ -33,6 +33,7 @@ import type {
   ConversationStateSnapshot,
   Decision,
   Intent,
+  OrchestratorErrorCode,
   Plan,
   SofiaContext,
   TurnInput,
@@ -141,7 +142,12 @@ export class SofiaOrchestrator {
       return this.lastAction
     } catch (err) {
       console.error("[Sofia][Orchestrator] falha ao processar o turno (ignorada, sem impacto na conversa)", err)
-      return { type: "WAIT", reason: "Falha ao processar o turno (ignorada)." }
+      const errorCode: OrchestratorErrorCode = "ORCHESTRATOR_PIPELINE_ERROR"
+      return {
+        type: "WAIT",
+        reason: "Falha interna do pipeline.",
+        metadata: { error: true, errorCode },
+      }
     }
   }
 

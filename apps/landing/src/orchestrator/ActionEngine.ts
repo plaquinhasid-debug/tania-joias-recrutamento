@@ -23,6 +23,7 @@ export function executeDecision(decision: Decision, plan: Plan): Action {
       type: decision.type,
       reason: decision.reason,
       target: plan.proximoObjetivo.id,
+      outcome: decision.outcome,
       metadata: decision.metadata,
     }
   }
@@ -30,6 +31,7 @@ export function executeDecision(decision: Decision, plan: Plan): Action {
   return {
     type: decision.type,
     reason: decision.reason,
+    outcome: decision.outcome,
     metadata: decision.metadata,
   }
 }
