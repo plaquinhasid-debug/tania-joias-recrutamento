@@ -11,6 +11,7 @@
  * exemplo) nunca exige mudar este arquivo.
  */
 import { createLogger } from "../devLog"
+import { extractKeywords } from "./extractKeywords"
 import { InMemoryKnowledgeRepository } from "./KnowledgeRepository"
 import type { KnowledgeRepository } from "./KnowledgeRepository"
 import { SEED_KNOWLEDGE_DOCUMENTS } from "./seedDocuments"
@@ -103,6 +104,50 @@ export class KnowledgeEngine {
 
   async listDocuments(): Promise<KnowledgeDocument[]> {
     return this.repository.getAll()
+  }
+
+  /**
+   * Busca a partir de uma PERGUNTA em linguagem natural (v1 — extração de
+   * palavras-chave, sem busca semântica). `search({texto})` sozinho falha
+   * pra perguntas reais porque exige a frase inteira como substring; aqui
+   * extrai as palavras relevantes (`extractKeywords`) e busca cada uma
+   * separadamente, unindo os resultados e ranqueando por quantas palavras
+   * diferentes bateram em cada documento (desempate por prioridade).
+   */
+  async searchByQuestion(pergunta: string, limite = 3): Promise<KnowledgeDocument[]> {
+    const start = Date.now()
+    const keywords = extractKeywords(pergunta)
+
+    if (keywords.length === 0) {
+      log("Busca por pergunta: nenhuma palavra-chave relevante extraída.", { pergunta })
+      return []
+    }
+
+    const pontosPorId = new Map<string, { documento: KnowledgeDocument; pontos: number }>()
+    for (const keyword of keywords) {
+      const encontrados = await this.search({ texto: keyword })
+      for (const documento of encontrados) {
+        const atual = pontosPorId.get(documento.id)
+        if (atual) {
+          atual.pontos += 1
+        } else {
+          pontosPorId.set(documento.id, { documento, pontos: 1 })
+        }
+      }
+    }
+
+    const resultado = [...pontosPorId.values()]
+      .sort((a, b) => b.pontos - a.pontos || b.documento.prioridade - a.documento.prioridade)
+      .slice(0, limite)
+      .map((r) => r.documento)
+
+    log("Busca por pergunta realizada")
+    log("Pergunta:", pergunta)
+    log("Palavras-chave extraídas:", keywords)
+    log("Quantidade encontrada:", resultado.length)
+    log(`Tempo: ${Date.now() - start}ms`)
+
+    return resultado
   }
 }
 

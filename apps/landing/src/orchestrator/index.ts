@@ -41,6 +41,7 @@ export { KnowledgeTool } from "./tools/KnowledgeTool"
 
 // Knowledge Engine (RFC-006) — localiza conhecimento institucional estruturado.
 export { KnowledgeEngine, createDefaultKnowledgeEngine } from "./knowledge/KnowledgeEngine"
+export { extractKeywords } from "./knowledge/extractKeywords"
 export { InMemoryKnowledgeRepository } from "./knowledge/KnowledgeRepository"
 export type { KnowledgeRepository } from "./knowledge/KnowledgeRepository"
 export { SEED_KNOWLEDGE_DOCUMENTS } from "./knowledge/seedDocuments"
