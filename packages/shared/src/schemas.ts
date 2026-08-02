@@ -67,3 +67,43 @@ export const finalizeCandidateResponseSchema = z.object({
 })
 
 export type FinalizeCandidateResponse = z.infer<typeof finalizeCandidateResponseSchema>
+
+/**
+ * Resposta da Edge Function `agent-ai-gateway` (RFC-011). Duplicação
+ * deliberada do contrato Deno-side (`supabase/functions/agent-ai-gateway/index.ts`)
+ * — mesma convenção já usada para `finalizeCandidateResponseSchema` acima
+ * (Edge Functions não importam `@tania-joias/shared`, então não há um tipo
+ * único compartilhado entre os dois lados; mudanças no contrato precisam
+ * ser replicadas manualmente nos dois arquivos).
+ */
+export const agentAiGatewayResponseSchema = z.object({
+  success: z.boolean(),
+  requestId: z.string(),
+  operation: z.literal("GENERATE_CONVERSATIONAL_RESPONSE"),
+  output: z.object({ message: z.string() }).optional(),
+  usage: z.object({ inputTokens: z.number().optional(), outputTokens: z.number().optional() }).optional(),
+  latencyMs: z.number(),
+  fallbackRequired: z.boolean(),
+  error: z
+    .object({
+      code: z.enum([
+        "INVALID_METHOD",
+        "ORIGIN_NOT_ALLOWED",
+        "INVALID_PAYLOAD",
+        "PAYLOAD_TOO_LARGE",
+        "UNSUPPORTED_OPERATION",
+        "UNKNOWN_AGENT",
+        "AI_TIMEOUT",
+        "AI_RATE_LIMITED",
+        "AI_PROVIDER_ERROR",
+        "AI_INVALID_RESPONSE",
+        "INTERNAL_ERROR",
+      ]),
+      message: z.string(),
+      retryable: z.boolean(),
+    })
+    .optional(),
+})
+
+export type AgentAiGatewayResponse = z.infer<typeof agentAiGatewayResponseSchema>
+export type AgentAiGatewayErrorCode = NonNullable<AgentAiGatewayResponse["error"]>["code"]

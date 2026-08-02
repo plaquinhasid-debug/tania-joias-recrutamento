@@ -17,10 +17,13 @@ export { SOFIA_CAPABILITIES, getCapabilitiesByCategory } from "./Capabilities"
 export type { Capability, CapabilityCategory } from "./Capabilities"
 
 // AI Gateway (RFC-004) — única porta pra qualquer provedor de IA.
-export { AIGateway, createDefaultAIGateway } from "./ai/AIGateway"
+export { AIGateway, createDefaultAIGateway, createServerBackedAIGateway } from "./ai/AIGateway"
 export type { AIGatewayConfig } from "./ai/AIGateway"
 export { AnthropicProvider, ANTHROPIC_MODEL } from "./ai/AnthropicProvider"
 export type { AIProvider, AIRequest, AIRequestKind, AIResponse } from "./ai/AIProvider"
+// SupabaseAIProvider (RFC-011) — implementação real, segura, ainda não conectada ao chat.
+export { SupabaseAIProvider } from "./ai/SupabaseAIProvider"
+export type { SupabaseAIProviderConfig } from "./ai/SupabaseAIProvider"
 
 // Tool Engine (RFC-004) — única porta pra qualquer consulta de conhecimento.
 export { ToolEngine } from "./tools/ToolEngine"
