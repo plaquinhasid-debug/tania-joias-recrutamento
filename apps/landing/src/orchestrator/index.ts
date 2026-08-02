@@ -62,6 +62,27 @@ export { SOFIA_PROFILE } from "./agent/profiles/sofia"
 export { AgentRuntime } from "./agent/AgentRuntime"
 export { createSofiaRuntime, createSofiaOrchestrator } from "./agent/createSofiaRuntime"
 
+// Response Composer (FEATURE-001) — monta a mensagem final a partir de uma resposta de IA, seguindo o PLAYBOOK-001. Ainda não conectado ao fluxo real.
+export { composeResponse } from "./composer/ResponseComposer"
+export {
+  runAllPolicies,
+  checkHasText,
+  checkWithinLength,
+  checkMaxParagraphs,
+  checkAtMostOneQuestion,
+  checkNoForbiddenPromise,
+  checkNoForbiddenPhrase,
+} from "./composer/ResponsePolicies"
+export { TRANSITIONS, pickTransition } from "./composer/TransitionLibrary"
+export type { PickTransitionOptions } from "./composer/TransitionLibrary"
+export type {
+  ComposeResponseInput,
+  ComposedResponse,
+  PolicyViolation,
+  PolicyViolationCode,
+  PolicyCheckResult,
+} from "./composer/types"
+
 export type {
   Action,
   ConversationEvent,
