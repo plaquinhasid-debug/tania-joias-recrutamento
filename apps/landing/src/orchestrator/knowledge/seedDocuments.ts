@@ -10,18 +10,21 @@
  * `ToolEngine`/FEATURE-003, pausada) — carregar conteúdo oficial aqui não
  * muda isso; é só o primeiro passo para a FEATURE-003 ter o que responder.
  *
- * DELIBERADAMENTE OMITIDO: a seção "Critérios de reprovação" do
- * `docs/knowledge/COM-002-recrutamento.md` (solteira/casada com mais de 3
- * filhos) não foi carregada aqui nem em nenhum outro lugar do produto —
- * contradiz uma decisão anterior explícita de não usar gênero/número de
- * filhos como critério de qualificação (risco de discriminação). Ver nota
- * no próprio arquivo COM-002 e o relatório desta sessão.
+ * COM-002 está na v1.1 (`docs/knowledge/COM-002-recrutamento.md`): as duas
+ * divergências da v1.0 foram resolvidas pelo Antonio — "Ribeirão Pires"
+ * incluída nas cidades atendidas (agora bate com o setting
+ * `cidades_atendidas` em produção) e o critério de filhos/estado civil foi
+ * removido (reintrodução por engano na v1.0; conflitava com decisão
+ * anterior de não usar gênero/número de filhos como critério, por risco de
+ * discriminação).
  *
- * DIVERGÊNCIA CONHECIDA: o COM-002 lista 4 cidades atendidas (sem Ribeirão
- * Pires); o setting `cidades_atendidas` em produção tem 5 (com Ribeirão
- * Pires). Documento compilado abaixo segue o COM-002 (fonte oficial mais
- * recente) — a configuração de produção não foi alterada, fica pendente de
- * decisão.
+ * AINDA DELIBERADAMENTE OMITIDO: a seção "Critério de reprovação" do
+ * COM-002 v1.1 (só resta "desempregada", já sem o conflito de
+ * discriminação) continua fora daqui — o próprio documento marca isso como
+ * "uso interno, não expor diretamente à candidata", e a mensagem exata de
+ * reprovação ainda está pendente de definição. A informação positiva
+ * equivalente ("estar trabalhando") já está em `com-002-elegibilidade`,
+ * então nenhuma informação útil pra candidata fica de fora.
  */
 import type { KnowledgeDocument } from "./types"
 
@@ -75,11 +78,11 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     titulo: "Quem pode ser revendedora",
     categoria: "RECRUTAMENTO",
     conteudo:
-      "Para se tornar revendedora da Tania Joias é necessário: ser mulher, acima de 21 anos; morar em Mauá, Santo André, São Caetano do Sul ou São Bernardo do Campo; ter WhatsApp e Instagram; e estar trabalhando — em uma empresa, escola ou hospital, ou ser cabeleireira atuando em salão de beleza.",
+      "Para se tornar revendedora da Tania Joias é necessário: ser mulher, acima de 21 anos; morar em Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo ou São Caetano do Sul; ter WhatsApp e Instagram; e estar trabalhando — em uma empresa, escola ou hospital, ou ser cabeleireira atuando em salão de beleza.",
     tags: ["elegibilidade", "requisitos"],
-    palavrasChave: ["requisitos", "posso ser revendedora", "cidade atendida", "idade minima", "precisa trabalhar"],
+    palavrasChave: ["requisitos", "posso ser revendedora", "cidade atendida", "idade minima", "precisa trabalhar", "ribeirao pires"],
     prioridade: 9,
-    versao: 1,
+    versao: 2,
     ativo: true,
     criadoEm: AGORA,
     atualizadoEm: AGORA,

@@ -1,8 +1,8 @@
 # Base de Conhecimento Oficial — Tania Joias
 Documento: COM-002
-Versão: 1.0
+Versão: 1.1 (correção: cidade adicionada, critério de filhos/estado civil removido)
 Revisado por: Antonio (proprietário)
-Status: Oficial — substitui qualquer documento fictício de exemplo
+Status: Oficial — substitui a versão 1.0
 
 ---
 
@@ -13,7 +13,7 @@ Status: Oficial — substitui qualquer documento fictício de exemplo
 **Resposta oficial:**
 Para se tornar revendedora da Tania Joias, é necessário:
 - Ser **mulher, acima de 21 anos**
-- Morar em uma destas cidades: **Mauá, Santo André, São Caetano do Sul ou São Bernardo do Campo**
+- Morar em uma destas cidades: **Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo ou São Caetano do Sul**
 - Ter **WhatsApp** e **Instagram**
 - Estar **trabalhando** — em uma empresa, escola ou hospital, **ou** ser cabeleireira atuando em salão de beleza
 
@@ -32,15 +32,14 @@ A candidata preenche um **cadastro** com suas informações. A partir daí a Tan
 
 ---
 
-## Tópico: Critérios de reprovação (uso interno — não expor diretamente à candidata)
+## Tópico: Critério de reprovação (uso interno — não expor diretamente à candidata)
 
 **Contexto para a Sofia (não é uma resposta a ser lida literalmente para a candidata):**
-Não são aprovadas automaticamente candidatas que se encaixam em:
-- Solteira com mais de 3 filhos
-- Casada com mais de 3 filhos
-- Desempregada
+Não é aprovada automaticamente candidata que esteja **desempregada**.
 
-**Importante:** este critério é interno para a triagem/IPR. A Sofia **não deve comunicar esses critérios diretamente** a uma candidata reprovada de forma que soe como julgamento pessoal. Se uma candidata for reprovada, o tom da resposta deve ser respeitoso e neutro — recomendo revisar com você qual mensagem exata deve ser usada nesse caso antes de colocar em produção, já que é um ponto sensível de comunicação.
+**Removido nesta versão (1.1):** o critério de número de filhos/estado civil foi retirado por decisão do Antonio — risco de discriminação no acesso a uma oportunidade econômica.
+
+**Importante:** este critério é interno para a triagem/IPR. A Sofia **não deve comunicar esse critério diretamente** a uma candidata reprovada de forma que soe como julgamento pessoal. A mensagem exata de reprovação ainda precisa ser definida com o Antonio antes de colocar em produção.
 
 **Palavras-chave para busca:** critério de reprovação, não aprovada, IPR, triagem interna
 
@@ -48,11 +47,12 @@ Não são aprovadas automaticamente candidatas que se encaixam em:
 
 ## Notas de manutenção
 
-- **Pendência de revisão:** a mensagem que a Sofia envia para uma candidata reprovada ainda não foi definida com você. Isso é importante para não soar ofensivo — sugiro tratarmos isso separadamente antes de colocar em produção.
-- Próximos documentos a criar: política de troca/devolução por defeito, como funciona o primeiro pedido/mostruário inicial.
+- **Correção aplicada:** cidade "Ribeirão Pires" incluída (estava faltando na v1.0, mas já configurada no Supabase desde 29/07/2026).
+- **Correção aplicada:** critério de filhos/estado civil removido — havia sido descartado em sessão anterior por risco de discriminação, e a v1.0 tinha reintroduzido isso por engano.
+- **Pendência de revisão:** a mensagem que a Sofia envia para uma candidata reprovada ainda não foi definida com você.
 
 ---
 
 ## Nota do Claude Code (2026-08-02)
 
-A seção "Critérios de reprovação" acima (solteira/casada com mais de 3 filhos) **não foi carregada no KnowledgeEngine nem em nenhuma lógica do produto**. Ela contradiz uma decisão anterior explícita da Tania de não usar gênero/número de filhos como critério de qualificação, pelo risco de discriminação — decisão essa que ficou registrada em memória de sessão. O app hoje também não coleta "estado civil" nem "número de filhos" em nenhum campo, então esse critério não teria como ser aplicado automaticamente de qualquer forma. Arquivo mantido aqui na íntegra (arquivo é o registro literal do que foi enviado), mas o conflito precisa ser resolvido com a Tania antes de qualquer parte dele ser usada em produção.
+Os dois conflitos sinalizados na v1.0 (critério de filhos/estado civil vs. decisão anterior; 4 vs. 5 cidades atendidas) estão resolvidos nesta versão. `seedDocuments.ts` foi atualizado: `com-002-elegibilidade` agora inclui as 5 cidades (igual ao setting `cidades_atendidas` em produção). A seção "Critério de reprovação" continua **fora** do KnowledgeEngine — não por conflito de decisão desta vez, mas porque (a) o próprio documento ainda marca isso como "uso interno, não expor diretamente", e (b) a mensagem exata de reprovação ainda está pendente. A informação positiva equivalente ("estar trabalhando") já está no documento de elegibilidade, então nada de útil pra candidata fica de fora.
