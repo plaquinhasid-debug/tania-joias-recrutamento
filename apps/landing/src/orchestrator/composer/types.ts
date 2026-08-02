@@ -26,6 +26,15 @@ import type { IntentType } from "../types"
  */
 export type AcknowledgmentKind = "QUESTION" | "DOUBT" | "OBJECTION" | "ANSWER" | "SMALL_TALK" | "GENERIC"
 
+/**
+ * Classificação de uma transição (FEATURE-002.1): `DECLARATIVE` nunca tem
+ * "?"; `INTERROGATIVE` sempre tem. Existe pra impedir a mensagem final de
+ * acabar com duas perguntas visíveis (a transição + a pergunta do
+ * roteiro) — transições `INTERROGATIVE` só podem ser usadas quando NÃO
+ * houver `currentQuestion` sendo anexada depois.
+ */
+export type TransitionKind = "DECLARATIVE" | "INTERROGATIVE"
+
 export interface ComposeResponseInput {
   /** Resposta bruta gerada pela IA (ex.: via `agent-ai-gateway`, RFC-011) — ainda não validada. */
   aiResponse: string

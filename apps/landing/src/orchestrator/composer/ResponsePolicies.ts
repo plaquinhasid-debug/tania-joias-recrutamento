@@ -1,5 +1,5 @@
 /**
- * ResponsePolicies (FEATURE-001 / FEATURE-002).
+ * ResponsePolicies (FEATURE-001 / FEATURE-002 / FEATURE-002.1).
  *
  * Checagens determinísticas — SEM IA — que decidem se uma resposta gerada
  * pela IA pode ser usada como está, ou se viola o PLAYBOOK-001
@@ -11,12 +11,15 @@
  * abaixo espelham as regras de tamanho/estrutura/promessas do playbook; se
  * o playbook mudar essas regras, atualize as constantes aqui.
  *
- * FEATURE-002 (Objetivo 6) adiciona `runFinalPolicies`: as checagens acima
- * (`runAllPolicies`) continuam avaliando SÓ o conteúdo bruto da IA — nunca
- * o acknowledgment, a transição ou a próxima pergunta, que são texto
- * curado/determinístico e não precisam ser policiados como se fossem IA.
- * `runFinalPolicies` audita a MENSAGEM COMPOSTA inteira (defesa adicional,
- * não substitui a checagem de conteúdo).
+ * `runAllPolicies` continua avaliando SÓ o conteúdo bruto da IA.
+ * `runFinalPolicies` (FEATURE-002, ajustada na FEATURE-002.1) audita a
+ * MENSAGEM COMPOSTA inteira de verdade — acknowledgment, conteúdo,
+ * transição E pergunta, sem excluir nada da contagem de perguntas (a
+ * FEATURE-002.1 corrigiu um bug em que a transição/pergunta ficavam de
+ * fora dessa contagem, permitindo duas perguntas visíveis na mensagem
+ * final). `checkNoQuestionWhenScriptQuestionExists` é uma checagem à parte
+ * — cruza o conteúdo da IA com a EXISTÊNCIA de uma pergunta do roteiro,
+ * então não cabe dentro de `runAllPolicies` (que só olha o texto isolado).
  */
 import type { PolicyCheckResult, PolicyViolation } from "./types"
 
@@ -111,6 +114,28 @@ export function checkAtMostOneQuestion(resposta: string): PolicyViolation | null
     : { code: "MULTIPLE_QUESTIONS", detail: `A resposta contém ${perguntas} perguntas (máximo ${MAX_QUESTIONS}).` }
 }
 
+/**
+ * FEATURE-002.1, Objetivo 3: quando já existe uma `currentQuestion` do
+ * roteiro que será anexada depois, o conteúdo da IA não pode conter
+ * NENHUMA pergunta própria — mesmo uma só (que sozinha passaria em
+ * `checkAtMostOneQuestion`) resultaria em duas perguntas na mensagem
+ * final. Nunca tenta remover/reescrever a pergunta do conteúdo — só
+ * sinaliza pra o Composer descartar e usar o fallback.
+ */
+export function checkNoQuestionWhenScriptQuestionExists(
+  resposta: string,
+  hasScriptQuestion: boolean,
+): PolicyViolation | null {
+  if (!hasScriptQuestion) return null
+  const perguntas = countQuestions(resposta)
+  return perguntas === 0
+    ? null
+    : {
+        code: "MULTIPLE_QUESTIONS",
+        detail: "A resposta da IA contém pergunta própria e já existe a pergunta do roteiro — juntas formariam duas perguntas.",
+      }
+}
+
 export function checkNoForbiddenPromise(resposta: string): PolicyViolation | null {
   const texto = normalize(resposta)
   const encontrada = FORBIDDEN_PROMISE_PHRASES.find((frase) => texto.includes(normalize(frase)))
@@ -140,24 +165,26 @@ export function runAllPolicies(resposta: string): PolicyCheckResult {
 }
 
 /**
- * Validação final sobre a MENSAGEM COMPOSTA inteira (FEATURE-002, Objetivo
- * 6) — última camada de defesa antes de considerar a composição pronta.
+ * Validação final sobre a MENSAGEM COMPOSTA inteira — a que a candidata
+ * realmente veria — última camada de defesa antes de considerar a
+ * composição pronta (FEATURE-002, Objetivo 6; corrigida na FEATURE-002.1,
+ * Objetivo 2).
  *
- * `fullMessage` é o texto completo (acknowledgment + conteúdo + transição +
- * pergunta) e é o que se avalia para tamanho/parágrafos/promessas/frases
- * proibidas. `questionCountText` é DELIBERADAMENTE menor — só
- * acknowledgment + conteúdo, sem a transição nem a próxima pergunta —
- * porque a checagem "no máximo 1 pergunta" não deve penalizar transições
- * retóricas já vetadas pela `TransitionLibrary` (ex.: "Posso te fazer mais
- * uma pergunta?") nem a pergunta oficial do roteiro, que é sempre única e
- * controlada por fora do Composer.
+ * FEATURE-002.1 corrigiu um bug aqui: a versão anterior excluía a
+ * transição e a próxima pergunta da contagem de perguntas, o que permitia
+ * uma transição interrogativa ("Posso te fazer mais uma pergunta?") + a
+ * pergunta do roteiro passarem como "só 1 pergunta". Agora `fullMessage` é
+ * avaliado por inteiro, sem exclusão nenhuma — é o `TransitionLibrary`
+ * (`requireDeclarative`) e o `checkNoQuestionWhenScriptQuestionExists`, lá
+ * no Composer, que evitam o conflito ANTES de chegar aqui; esta função só
+ * audita o resultado final.
  */
-export function runFinalPolicies(fullMessage: string, questionCountText: string): PolicyCheckResult {
+export function runFinalPolicies(fullMessage: string): PolicyCheckResult {
   const checks: Array<PolicyViolation | null> = [
     checkHasText(fullMessage),
     checkWithinLength(fullMessage, MAX_FINAL_WORDS),
     checkMaxParagraphs(fullMessage, MAX_FINAL_PARAGRAPHS),
-    checkAtMostOneQuestion(questionCountText),
+    checkAtMostOneQuestion(fullMessage),
     checkNoForbiddenPromise(fullMessage),
     checkNoForbiddenPhrase(fullMessage),
   ]

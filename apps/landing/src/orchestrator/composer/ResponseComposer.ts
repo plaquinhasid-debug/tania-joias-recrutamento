@@ -1,31 +1,35 @@
 /**
- * ResponseComposer (FEATURE-001 / FEATURE-002).
+ * ResponseComposer (FEATURE-001 / FEATURE-002 / FEATURE-002.1).
  *
  * Monta a mensagem final enviada à candidata a partir de uma resposta de
  * IA já pronta — a primeira peça do Lamin Agent Core com efeito potencial
  * no texto que a candidata veria (ainda não conectada a nada real, ver
- * `INTEGRAÇÃO`/`NÃO IMPLEMENTAR` na FEATURE-002).
+ * `INTEGRAÇÃO`/`NÃO IMPLEMENTAR` na FEATURE-002.1).
  *
  * Nunca chama IA, nunca decide regra de negócio, nunca altera o roteiro,
  * o Planner, o DecisionEngine ou o AI Gateway — só compõe texto.
  *
- * Pipeline (FEATURE-002, Objetivo 3):
+ * Pipeline:
  *   reconhecimento (`AcknowledgmentLibrary`) → conteúdo validado pela IA OU
- *   fallback acolhedor (`ResponsePolicies` + Objetivo 4) → transição
- *   (`TransitionLibrary`) → próxima pergunta do roteiro → validação final
- *   da mensagem composta (`runFinalPolicies`, Objetivo 6) → se ainda assim
- *   falhar, fallback mínimo absoluto.
+ *   fallback acolhedor (`ResponsePolicies`) → transição declarativa/
+ *   interrogativa conforme haja `currentQuestion` (`TransitionLibrary`) →
+ *   próxima pergunta do roteiro → validação final da mensagem composta
+ *   INTEIRA (`runFinalPolicies`) → se ainda assim falhar, fallback mínimo
+ *   (nunca só a pergunta nua — sempre reconhecimento + transição fixa +
+ *   pergunta, FEATURE-002.1 Objetivo 4).
  *
- * Uma falha da IA (ou uma composição que ultrapasse os limites finais)
- * nunca pode travar ou distorcer a conversa — mesmo espírito de fallback
- * já usado em `sofia-reagir` e no `agent-ai-gateway`.
+ * FEATURE-002.1 corrigiu dois bugs de contagem de perguntas:
+ *   1. A validação final agora audita a mensagem composta INTEIRA (sem
+ *      excluir transição/pergunta) — ver `runFinalPolicies`.
+ *   2. Transições interrogativas ("Posso te fazer mais uma pergunta?") só
+ *      são escolhidas quando NÃO há `currentQuestion` sendo anexada depois.
+ *   3. Se o conteúdo da IA contém pergunta própria E existe
+ *      `currentQuestion`, o conteúdo é sempre descartado (nunca reescrito) —
+ *      ver `checkNoQuestionWhenScriptQuestionExists`.
  */
 import { createLogger } from "../devLog"
-import {
-  pickAcknowledgment,
-  startsWithAcknowledgment,
-} from "./AcknowledgmentLibrary"
-import { runAllPolicies, runFinalPolicies } from "./ResponsePolicies"
+import { pickAcknowledgment, startsWithAcknowledgment } from "./AcknowledgmentLibrary"
+import { checkNoQuestionWhenScriptQuestionExists, runAllPolicies, runFinalPolicies } from "./ResponsePolicies"
 import { pickTransition } from "./TransitionLibrary"
 import type { AcknowledgmentKind, ComposeResponseInput, ComposedResponse, PolicyViolation } from "./types"
 import type { IntentType } from "../types"
@@ -49,6 +53,14 @@ const FALLBACK_BODY_BY_KIND: Record<AcknowledgmentKind, string> = {
   SMALL_TALK: "Prefiro não passar uma informação imprecisa neste momento.",
   GENERIC: "Prefiro não passar uma informação imprecisa neste momento.",
 }
+
+/**
+ * Transição fixa (não sorteada) do fallback mínimo absoluto (FEATURE-002.1,
+ * Objetivo 4) — texto exato do template da RFC. Deliberadamente não vem do
+ * `TransitionLibrary`: no último nível de segurança, previsibilidade máxima
+ * importa mais que variação.
+ */
+const MINIMAL_FALLBACK_TRANSITION = "Agora vamos continuar nossa conversa."
 
 /** Ponte entre o vocabulário do Agent Core (`IntentType`) e o vocabulário próprio do Composer (`AcknowledgmentKind`) — ver nota de acoplamento em `types.ts`. */
 function mapIntentToAcknowledgmentKind(intent: IntentType | undefined): AcknowledgmentKind {
@@ -82,59 +94,67 @@ function juntarPartes(partes: Array<string | undefined>): string {
 
 export function composeResponse(input: ComposeResponseInput): ComposedResponse {
   const kind = mapIntentToAcknowledgmentKind(input.intent)
+  const hasScriptQuestion = Boolean(input.currentQuestion?.trim())
+
   const contentPolicyResult = runAllPolicies(input.aiResponse)
-  const transition = pickTransition({ avoid: input.lastTransition })
+  const scriptQuestionConflict = checkNoQuestionWhenScriptQuestionExists(input.aiResponse, hasScriptQuestion)
+  const contentPassed = contentPolicyResult.passed && !scriptQuestionConflict
+  const contentViolations = scriptQuestionConflict
+    ? [...contentPolicyResult.violations, scriptQuestionConflict]
+    : contentPolicyResult.violations
 
   log("Kind de acknowledgment:", kind)
-  log("Policies do conteúdo da IA:", contentPolicyResult)
+  log("Policies do conteúdo da IA:", { passed: contentPassed, violations: contentViolations })
 
-  let aiContentUsed = contentPolicyResult.passed
-  let content = aiContentUsed ? input.aiResponse.trim() : FALLBACK_BODY_BY_KIND[kind]
-  let violations: PolicyViolation[] = contentPolicyResult.passed ? [] : contentPolicyResult.violations
+  // FEATURE-002.1, Objetivo 1: transição interrogativa só quando não há pergunta do roteiro sendo anexada.
+  let transition = pickTransition({ avoid: input.lastTransition, requireDeclarative: hasScriptQuestion })
 
-  // Objetivo 5: se a própria resposta da IA já começa com um reconhecimento
-  // equivalente, não adiciona outro — nunca se aplica ao corpo de fallback
-  // (que nunca inclui reconhecimento próprio).
+  let aiContentUsed = contentPassed
+  let content = contentPassed ? input.aiResponse.trim() : FALLBACK_BODY_BY_KIND[kind]
+  let violations: PolicyViolation[] = contentPassed ? [] : contentViolations
+
+  // Objetivo 5 (FEATURE-002): se a própria resposta da IA já começa com um
+  // reconhecimento equivalente, não adiciona outro. Nunca se aplica ao
+  // corpo de fallback (que nunca inclui reconhecimento próprio).
   let acknowledgment: string | undefined =
     aiContentUsed && startsWithAcknowledgment(input.aiResponse)
       ? undefined
       : pickAcknowledgment({ kind, avoid: input.lastAcknowledgment })
 
-  const build = (): { fullMessage: string; questionCountText: string } => {
-    const fullMessage = juntarPartes([acknowledgment, content, transition, input.currentQuestion])
-    const questionCountText = juntarPartes([acknowledgment, content])
-    return { fullMessage, questionCountText }
-  }
+  const build = (): string => juntarPartes([acknowledgment, content, transition, input.currentQuestion])
 
-  let { fullMessage, questionCountText } = build()
-  let finalCheck = runFinalPolicies(fullMessage, questionCountText)
+  let fullMessage = build()
+  let finalCheck = runFinalPolicies(fullMessage)
   log("Validação final (tentativa 1):", finalCheck)
 
-  // Objetivo 6: se a composição de sucesso ultrapassar os limites finais
-  // (ex.: conteúdo da IA perto do teto + acknowledgment + transição +
-  // pergunta somam palavras/parágrafos demais), cai pro fallback acolhedor
-  // antes de desistir — o conteúdo da IA nunca é "meio usado".
+  // Se a composição de sucesso ultrapassar os limites finais, cai pro
+  // fallback acolhedor antes de desistir — o conteúdo da IA nunca é "meio usado".
   if (!finalCheck.passed && aiContentUsed) {
     log("Composição de sucesso falhou na validação final — recompondo com fallback acolhedor.")
     aiContentUsed = false
     content = FALLBACK_BODY_BY_KIND[kind]
     acknowledgment = pickAcknowledgment({ kind, avoid: input.lastAcknowledgment })
     violations = [...violations, ...finalCheck.violations]
-    ;({ fullMessage, questionCountText } = build())
-    finalCheck = runFinalPolicies(fullMessage, questionCountText)
+    fullMessage = build()
+    finalCheck = runFinalPolicies(fullMessage)
     log("Validação final (tentativa 2, fallback acolhedor):", finalCheck)
   }
 
-  // Fallback mínimo absoluto (Objetivo 6): se mesmo o fallback acolhedor
-  // ultrapassar os limites finais — cenário defensivo, não esperado com as
-  // constantes curadas de hoje — a mensagem vira só a pergunta do roteiro
-  // (ou uma continuação genérica, se nem isso houver). Nunca deixa a
-  // interação sem resposta nenhuma.
+  // Fallback mínimo (FEATURE-002.1, Objetivo 4): se mesmo o fallback
+  // acolhedor ultrapassar os limites finais — cenário defensivo, não
+  // esperado com as constantes curadas de hoje — a mensagem vira
+  // reconhecimento + transição FIXA + pergunta do roteiro. Nunca só a
+  // pergunta nua: a candidata nunca pode parecer ignorada depois de uma
+  // dúvida ou objeção.
   if (!finalCheck.passed) {
-    log("Fallback acolhedor também falhou na validação final — usando fallback mínimo absoluto.", finalCheck.violations)
+    log("Fallback acolhedor também falhou na validação final — usando fallback mínimo.", finalCheck.violations)
     violations = [...violations, ...finalCheck.violations]
-    acknowledgment = undefined
-    fullMessage = input.currentQuestion?.trim() || "Podemos continuar?"
+    acknowledgment = pickAcknowledgment({ kind, avoid: input.lastAcknowledgment })
+    transition = MINIMAL_FALLBACK_TRANSITION
+    fullMessage = juntarPartes([acknowledgment, transition, input.currentQuestion?.trim() || "Podemos continuar?"])
+    aiContentUsed = false
+    // Reavalia só para reportar `finalValidationPassed` com precisão — não há mais nenhum nível de fallback abaixo deste.
+    finalCheck = runFinalPolicies(fullMessage)
   }
 
   return {

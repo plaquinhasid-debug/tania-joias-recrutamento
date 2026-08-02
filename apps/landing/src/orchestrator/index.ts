@@ -62,7 +62,7 @@ export { SOFIA_PROFILE } from "./agent/profiles/sofia"
 export { AgentRuntime } from "./agent/AgentRuntime"
 export { createSofiaRuntime, createSofiaOrchestrator } from "./agent/createSofiaRuntime"
 
-// Response Composer (FEATURE-001 / FEATURE-002) — monta a mensagem final a partir de uma resposta de IA, seguindo o PLAYBOOK-001. Ainda não conectado ao fluxo real.
+// Response Composer (FEATURE-001 / FEATURE-002 / FEATURE-002.1) — monta a mensagem final a partir de uma resposta de IA, seguindo o PLAYBOOK-001. Ainda não conectado ao fluxo real.
 export { composeResponse } from "./composer/ResponseComposer"
 export {
   runAllPolicies,
@@ -71,15 +71,17 @@ export {
   checkWithinLength,
   checkMaxParagraphs,
   checkAtMostOneQuestion,
+  checkNoQuestionWhenScriptQuestionExists,
   checkNoForbiddenPromise,
   checkNoForbiddenPhrase,
 } from "./composer/ResponsePolicies"
-export { TRANSITIONS, pickTransition } from "./composer/TransitionLibrary"
-export type { PickTransitionOptions } from "./composer/TransitionLibrary"
+export { TRANSITIONS, pickTransition, findTransitionKind } from "./composer/TransitionLibrary"
+export type { PickTransitionOptions, Transition } from "./composer/TransitionLibrary"
 export { pickAcknowledgment, startsWithAcknowledgment } from "./composer/AcknowledgmentLibrary"
 export type { PickAcknowledgmentOptions } from "./composer/AcknowledgmentLibrary"
 export type {
   AcknowledgmentKind,
+  TransitionKind,
   ComposeResponseInput,
   ComposedResponse,
   PolicyViolation,
