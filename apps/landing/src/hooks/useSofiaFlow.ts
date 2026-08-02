@@ -11,7 +11,8 @@ import {
   findNextStepIndex,
   type SofiaStep,
 } from "@/data/sofia-script"
-import { SofiaOrchestrator } from "@/orchestrator"
+import { createSofiaOrchestrator } from "@/orchestrator"
+import type { SofiaOrchestrator } from "@/orchestrator"
 import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
 
 /**
@@ -71,9 +72,11 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   // RFC-002: o Orquestrador só OBSERVA a conversa por fora — nunca decide
   // nada, nunca pode alterar o que é perguntado ou como. Uma instância por
   // conversa (sem persistência entre sessões, ver `orchestrator/Memory.ts`).
+  // RFC-010: montado via composition root (`createSofiaOrchestrator`) — este
+  // hook nunca instancia `SofiaOrchestrator` nem conhece `SOFIA_PROFILE` diretamente.
   const orchestratorRef = useRef<SofiaOrchestrator | null>(null)
   if (orchestratorRef.current === null) {
-    orchestratorRef.current = new SofiaOrchestrator(sessionId)
+    orchestratorRef.current = createSofiaOrchestrator(sessionId)
   }
 
   const pushBotLine = useCallback(async (text: string, delayMs: number) => {

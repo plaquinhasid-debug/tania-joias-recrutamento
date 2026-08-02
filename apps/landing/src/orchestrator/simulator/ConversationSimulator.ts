@@ -1,5 +1,5 @@
 /**
- * ConversationSimulator (RFC-007 / RFC-008).
+ * ConversationSimulator (RFC-007 / RFC-008 / RFC-010).
  *
  * Laboratório interno para testar o Lamin Agent Core sem depender da Landing
  * Page. Roda uma conversa completa alimentando o `SofiaOrchestrator` REAL —
@@ -7,9 +7,15 @@
  * devolve numa `SimulationResult`. Não reimplementa nenhuma lógica de
  * decisão: só chama o pipeline existente e observa.
  *
+ * RFC-010: o Orchestrator é montado via `createSofiaOrchestrator()`
+ * (`agent/createSofiaRuntime.ts`) — o MESMO composition root que
+ * `useSofiaFlow.ts` usa em produção. O Simulator importa esse módulo por
+ * caminho relativo direto, não pelo barrel `orchestrator/index.ts` — de
+ * propósito continua fora dele (ver `INTEGRAÇÃO`/Objetivo 8 da RFC-010).
+ *
  * Uso apenas em desenvolvimento (scripts, testes automatizados futuros,
  * REPL). Nunca é importado pela Landing, pelo Admin ou por qualquer Edge
- * Function — de propósito não está no barrel `orchestrator/index.ts`.
+ * Function.
  *
  * ## RFC-008: um objetivo só é preenchido com `answer` explícito
  *
@@ -22,9 +28,10 @@
  * inferir automaticamente que campo ela preenche.
  */
 import type { SofiaAnswers, SofiaPhase } from "@/types/sofia"
+import { createSofiaOrchestrator } from "../agent/createSofiaRuntime"
 import { createLogger } from "../devLog"
 import { evaluateObjectives, OBJECTIVES } from "../Objectives"
-import { SofiaOrchestrator } from "../SofiaOrchestrator"
+import type { SofiaOrchestrator } from "../SofiaOrchestrator"
 import type { ConversationEvent, ConversationOutcome, DecisionType, IntentType, ObjectiveStatus } from "../types"
 import type {
   ContextIntegrityError,
@@ -113,7 +120,8 @@ export class ConversationSimulator {
 
   constructor(sessionId?: string) {
     this.sessionId = sessionId ?? `simulacao-${Date.now()}-${++simulatedSessionCounter}`
-    this.orchestrator = new SofiaOrchestrator(this.sessionId)
+    // RFC-010: mesmo composition root da produção — nunca monta o Orchestrator de forma diferente.
+    this.orchestrator = createSofiaOrchestrator(this.sessionId)
   }
 
   /** Processa uma lista de turnos estruturados, um por vez, no mesmo pipeline do Orchestrator real. */

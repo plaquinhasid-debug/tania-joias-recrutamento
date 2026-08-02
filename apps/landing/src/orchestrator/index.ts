@@ -1,4 +1,5 @@
 export { SofiaOrchestrator } from "./SofiaOrchestrator"
+export type { SofiaOrchestratorConfig } from "./SofiaOrchestrator"
 export { OBJECTIVES, evaluateObjectives } from "./Objectives"
 export type { ObjectivesEvaluation } from "./Objectives"
 export { buildConversationState } from "./ConversationState"
@@ -51,8 +52,12 @@ export type {
 // Agent Profile (RFC-009) — identidade oficial de cada agente do Lamin Agent Core.
 export { AgentRegistry, createDefaultAgentRegistry } from "./agent/AgentRegistry"
 export { AgentFactory, createDefaultAgentFactory } from "./agent/AgentFactory"
-export type { AgentProfile } from "./agent/types"
+export type { AgentProfile, AgentCapabilityId, AgentRestrictionId, AgentRuntimeConfig, AgentRuntimeSnapshot } from "./agent/types"
 export { SOFIA_PROFILE } from "./agent/profiles/sofia"
+
+// Agent Runtime (RFC-010) — instância executável de um agente + composition root da Sofia.
+export { AgentRuntime } from "./agent/AgentRuntime"
+export { createSofiaRuntime, createSofiaOrchestrator } from "./agent/createSofiaRuntime"
 
 export type {
   Action,

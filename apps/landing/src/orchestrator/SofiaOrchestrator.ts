@@ -1,5 +1,5 @@
 /**
- * SofiaOrchestrator (RFC-002 / RFC-003 / RFC-005 / RFC-008).
+ * SofiaOrchestrator (RFC-002 / RFC-003 / RFC-005 / RFC-008 / RFC-010).
  *
  * O "cérebro" da Sofia em construção. Ele COORDENA os demais módulos — nunca
  * toma decisão de negócio, nunca gera texto, nunca calcula regras, nunca
@@ -17,8 +17,16 @@
  *
  * Cada instância representa UMA conversa (sem persistência entre sessões —
  * ver `WorkingMemory.ts` e `MemoryTypes.ts`).
+ *
+ * RFC-010: o construtor passou a exigir um `AgentProfile` injetado — este
+ * arquivo NUNCA importa `SOFIA_PROFILE` nem qualquer outro perfil concreto,
+ * só conhece a interface `AgentProfile`. Quem decide qual perfil usar é o
+ * composition root (`agent/createSofiaRuntime.ts`), não este módulo. Isso é
+ * o que permite, no futuro, reaproveitar este mesmo Orchestrator para outro
+ * agente só trocando o perfil injetado.
  */
 import { executeDecision } from "./ActionEngine"
+import type { AgentProfile } from "./agent/types"
 import { buildConversationState } from "./ConversationState"
 import { buildContext } from "./Context"
 import { decide } from "./DecisionEngine"
@@ -45,9 +53,15 @@ const logDecision = createLogger("[DecisionEngine]")
 
 const INTENT_NEUTRO: Intent = { type: "UNKNOWN", confidence: 1, reason: "Nenhum turno processado ainda." }
 
+export interface SofiaOrchestratorConfig {
+  sessionId: string
+  profile: Readonly<AgentProfile>
+}
+
 export class SofiaOrchestrator {
   private readonly workingMemory = new WorkingMemory()
   private readonly sessionId: string
+  private readonly profile: Readonly<AgentProfile>
   private state: ConversationStateSnapshot
   private context: SofiaContext
   private plan: Plan
@@ -55,8 +69,10 @@ export class SofiaOrchestrator {
   private decision: Decision
   private lastAction: Action
 
-  constructor(sessionId: string) {
+  constructor(config: SofiaOrchestratorConfig) {
+    const { sessionId, profile } = config
     this.sessionId = sessionId
+    this.profile = profile
     this.context = buildContext({})
     this.state = buildConversationState({
       sessionId,
@@ -177,5 +193,10 @@ export class SofiaOrchestrator {
 
   getWorkingMemory(): WorkingMemory {
     return this.workingMemory
+  }
+
+  /** Perfil injetado no construtor — somente leitura (RFC-010). Nenhum módulo interno pode alterá-lo. */
+  getAgentProfile(): Readonly<AgentProfile> {
+    return this.profile
   }
 }
