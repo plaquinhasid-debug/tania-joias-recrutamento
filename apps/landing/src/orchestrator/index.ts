@@ -48,6 +48,12 @@ export type {
   KnowledgeSearchQuery,
 } from "./knowledge/types"
 
+// Agent Profile (RFC-009) — identidade oficial de cada agente do Lamin Agent Core.
+export { AgentRegistry, createDefaultAgentRegistry } from "./agent/AgentRegistry"
+export { AgentFactory, createDefaultAgentFactory } from "./agent/AgentFactory"
+export type { AgentProfile } from "./agent/types"
+export { SOFIA_PROFILE } from "./agent/profiles/sofia"
+
 export type {
   Action,
   ConversationEvent,
