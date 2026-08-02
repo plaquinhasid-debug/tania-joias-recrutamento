@@ -1,5 +1,5 @@
 /**
- * ResponsePolicies (FEATURE-001).
+ * ResponsePolicies (FEATURE-001 / FEATURE-002).
  *
  * Checagens determinísticas — SEM IA — que decidem se uma resposta gerada
  * pela IA pode ser usada como está, ou se viola o PLAYBOOK-001
@@ -10,6 +10,13 @@
  * resultado agregado de todas as outras (`runAllPolicies`). Os limites
  * abaixo espelham as regras de tamanho/estrutura/promessas do playbook; se
  * o playbook mudar essas regras, atualize as constantes aqui.
+ *
+ * FEATURE-002 (Objetivo 6) adiciona `runFinalPolicies`: as checagens acima
+ * (`runAllPolicies`) continuam avaliando SÓ o conteúdo bruto da IA — nunca
+ * o acknowledgment, a transição ou a próxima pergunta, que são texto
+ * curado/determinístico e não precisam ser policiados como se fossem IA.
+ * `runFinalPolicies` audita a MENSAGEM COMPOSTA inteira (defesa adicional,
+ * não substitui a checagem de conteúdo).
  */
 import type { PolicyCheckResult, PolicyViolation } from "./types"
 
@@ -17,6 +24,21 @@ import type { PolicyCheckResult, PolicyViolation } from "./types"
 export const MAX_WORDS = 150
 export const MAX_PARAGRAPHS = 3
 export const MAX_QUESTIONS = 1
+
+/**
+ * Limites da MENSAGEM COMPOSTA final (acknowledgment + conteúdo + transição
+ * + próxima pergunta), maiores que os limites de conteúdo isolado acima
+ * porque a composição legitimamente soma até 4 segmentos. `MAX_FINAL_WORDS`
+ * = margem sobre `MAX_WORDS` (150) + acknowledgment/transição/pergunta
+ * (tipicamente ~10-20 palavras cada). `MAX_FINAL_PARAGRAPHS` = 4, decisão
+ * documentada aqui (FEATURE-002, Objetivo 6): 1 parágrafo por segmento
+ * (acknowledgment, conteúdo, transição, pergunta) no caso normal — um
+ * conteúdo de 3 parágrafos (o próprio limite de `MAX_PARAGRAPHS`) já
+ * estoura esse teto e força o fallback acolhedor, que é o comportamento
+ * pretendido.
+ */
+export const MAX_FINAL_WORDS = 220
+export const MAX_FINAL_PARAGRAPHS = 4
 
 /** Espelha `neverPromise` de `supabase/functions/_shared/agent-prompts.ts` — mantenha as duas listas em sincronia se o playbook mudar. */
 const FORBIDDEN_PROMISE_PHRASES = [
@@ -68,18 +90,18 @@ export function checkHasText(resposta: string): PolicyViolation | null {
   return resposta.trim().length > 0 ? null : { code: "EMPTY_TEXT", detail: "A resposta está vazia." }
 }
 
-export function checkWithinLength(resposta: string): PolicyViolation | null {
+export function checkWithinLength(resposta: string, maxWords: number = MAX_WORDS): PolicyViolation | null {
   const palavras = countWords(resposta)
-  return palavras <= MAX_WORDS
+  return palavras <= maxWords
     ? null
-    : { code: "EXCEEDS_LENGTH", detail: `A resposta tem ${palavras} palavras (máximo ${MAX_WORDS}).` }
+    : { code: "EXCEEDS_LENGTH", detail: `A resposta tem ${palavras} palavras (máximo ${maxWords}).` }
 }
 
-export function checkMaxParagraphs(resposta: string): PolicyViolation | null {
+export function checkMaxParagraphs(resposta: string, maxParagraphs: number = MAX_PARAGRAPHS): PolicyViolation | null {
   const paragrafos = countParagraphs(resposta)
-  return paragrafos <= MAX_PARAGRAPHS
+  return paragrafos <= maxParagraphs
     ? null
-    : { code: "TOO_MANY_PARAGRAPHS", detail: `A resposta tem ${paragrafos} parágrafos (máximo ${MAX_PARAGRAPHS}).` }
+    : { code: "TOO_MANY_PARAGRAPHS", detail: `A resposta tem ${paragrafos} parágrafos (máximo ${maxParagraphs}).` }
 }
 
 export function checkAtMostOneQuestion(resposta: string): PolicyViolation | null {
@@ -114,5 +136,31 @@ export function runAllPolicies(resposta: string): PolicyCheckResult {
   const violations = ALL_CHECKS.map((check) => check(resposta)).filter(
     (v): v is PolicyViolation => v !== null,
   )
+  return { passed: violations.length === 0, violations }
+}
+
+/**
+ * Validação final sobre a MENSAGEM COMPOSTA inteira (FEATURE-002, Objetivo
+ * 6) — última camada de defesa antes de considerar a composição pronta.
+ *
+ * `fullMessage` é o texto completo (acknowledgment + conteúdo + transição +
+ * pergunta) e é o que se avalia para tamanho/parágrafos/promessas/frases
+ * proibidas. `questionCountText` é DELIBERADAMENTE menor — só
+ * acknowledgment + conteúdo, sem a transição nem a próxima pergunta —
+ * porque a checagem "no máximo 1 pergunta" não deve penalizar transições
+ * retóricas já vetadas pela `TransitionLibrary` (ex.: "Posso te fazer mais
+ * uma pergunta?") nem a pergunta oficial do roteiro, que é sempre única e
+ * controlada por fora do Composer.
+ */
+export function runFinalPolicies(fullMessage: string, questionCountText: string): PolicyCheckResult {
+  const checks: Array<PolicyViolation | null> = [
+    checkHasText(fullMessage),
+    checkWithinLength(fullMessage, MAX_FINAL_WORDS),
+    checkMaxParagraphs(fullMessage, MAX_FINAL_PARAGRAPHS),
+    checkAtMostOneQuestion(questionCountText),
+    checkNoForbiddenPromise(fullMessage),
+    checkNoForbiddenPhrase(fullMessage),
+  ]
+  const violations = checks.filter((v): v is PolicyViolation => v !== null)
   return { passed: violations.length === 0, violations }
 }
