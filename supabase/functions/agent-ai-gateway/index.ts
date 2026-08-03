@@ -36,12 +36,19 @@ import {
 type Operation = "GENERATE_CONVERSATIONAL_RESPONSE"
 type AgentId = "sofia"
 
+/** Documento oficial já encontrado pelo `KnowledgeEngine` (frontend) — FEATURE-003. */
+interface KnowledgeDocumentPayload {
+  titulo: string
+  conteudo: string
+}
+
 interface AgentAiGatewayRequestInput {
   userMessage: string
   currentObjective?: string
   knownContext?: Record<string, unknown>
   intent?: string
   decision?: string
+  knowledgeDocuments?: KnowledgeDocumentPayload[]
 }
 
 interface AgentAiGatewayRequest {
@@ -89,6 +96,9 @@ const MAX_DECISION_LENGTH = 40
 const MAX_KNOWN_CONTEXT_KEYS = 20
 const MAX_CONTEXT_KEY_LENGTH = 60
 const MAX_CONTEXT_VALUE_LENGTH = 300
+const MAX_KNOWLEDGE_DOCUMENTS = 3
+const MAX_DOCUMENT_TITLE_LENGTH = 150
+const MAX_DOCUMENT_CONTENT_LENGTH = 1200
 
 // ---------------------------------------------------------------------------
 // Mensagens públicas de erro — nunca expõem detalhe interno/da Anthropic.
@@ -180,7 +190,14 @@ function isRateLimited(bucketKey: string): boolean {
 // ---------------------------------------------------------------------------
 
 const ALLOWED_TOP_LEVEL_KEYS = new Set(["operation", "agentId", "sessionId", "input"])
-const ALLOWED_INPUT_KEYS = new Set(["userMessage", "currentObjective", "knownContext", "intent", "decision"])
+const ALLOWED_INPUT_KEYS = new Set([
+  "userMessage",
+  "currentObjective",
+  "knownContext",
+  "intent",
+  "decision",
+  "knowledgeDocuments",
+])
 
 type ValidationResult =
   | { ok: true; value: AgentAiGatewayRequest }
@@ -263,6 +280,38 @@ function validateRequest(raw: unknown): ValidationResult {
     }
   }
 
+  if (input.knowledgeDocuments !== undefined) {
+    if (!Array.isArray(input.knowledgeDocuments)) {
+      return { ok: false, code: "INVALID_PAYLOAD", detail: "input.knowledgeDocuments deve ser um array" }
+    }
+    if (input.knowledgeDocuments.length > MAX_KNOWLEDGE_DOCUMENTS) {
+      return { ok: false, code: "PAYLOAD_TOO_LARGE", detail: "input.knowledgeDocuments excede o número máximo de documentos" }
+    }
+    for (const doc of input.knowledgeDocuments) {
+      if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
+        return { ok: false, code: "INVALID_PAYLOAD", detail: "item de input.knowledgeDocuments inválido" }
+      }
+      const docObj = doc as Record<string, unknown>
+      for (const key of Object.keys(docObj)) {
+        if (key !== "titulo" && key !== "conteudo") {
+          return { ok: false, code: "INVALID_PAYLOAD", detail: `campo não permitido em knowledgeDocuments: ${key}` }
+        }
+      }
+      if (typeof docObj.titulo !== "string" || docObj.titulo.length === 0) {
+        return { ok: false, code: "INVALID_PAYLOAD", detail: "knowledgeDocuments[].titulo é obrigatório" }
+      }
+      if (docObj.titulo.length > MAX_DOCUMENT_TITLE_LENGTH) {
+        return { ok: false, code: "PAYLOAD_TOO_LARGE", detail: "knowledgeDocuments[].titulo excede o tamanho máximo" }
+      }
+      if (typeof docObj.conteudo !== "string" || docObj.conteudo.length === 0) {
+        return { ok: false, code: "INVALID_PAYLOAD", detail: "knowledgeDocuments[].conteudo é obrigatório" }
+      }
+      if (docObj.conteudo.length > MAX_DOCUMENT_CONTENT_LENGTH) {
+        return { ok: false, code: "PAYLOAD_TOO_LARGE", detail: "knowledgeDocuments[].conteudo excede o tamanho máximo" }
+      }
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -275,6 +324,7 @@ function validateRequest(raw: unknown): ValidationResult {
         knownContext: input.knownContext as Record<string, unknown> | undefined,
         intent: input.intent as string | undefined,
         decision: input.decision as string | undefined,
+        knowledgeDocuments: input.knowledgeDocuments as KnowledgeDocumentPayload[] | undefined,
       },
     },
   }
@@ -387,6 +437,7 @@ Deno.serve(async (req) => {
       knownContext: request.input.knownContext,
       intent: request.input.intent,
       decision: request.input.decision,
+      knowledgeDocuments: request.input.knowledgeDocuments,
     })
 
     const latencyMs = Date.now() - start

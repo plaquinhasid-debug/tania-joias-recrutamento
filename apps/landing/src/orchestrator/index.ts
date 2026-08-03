@@ -90,6 +90,10 @@ export type {
   PolicyCheckResult,
 } from "./composer/types"
 
+// Pipeline (FEATURE-003) — QUESTION → KnowledgeEngine → AIGateway → ResponseComposer, ligado numa função só. Ainda não conectado ao chat real.
+export { answerCandidateQuestion } from "./pipeline/answerCandidateQuestion"
+export type { AnswerCandidateQuestionInput, AnswerCandidateQuestionResult } from "./pipeline/answerCandidateQuestion"
+
 export type {
   Action,
   ConversationEvent,

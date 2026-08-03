@@ -34,6 +34,12 @@ export class AgentAiError extends Error {
   }
 }
 
+/** Documento oficial já encontrado pelo `KnowledgeEngine` (frontend) — a IA deve responder SOMENTE com base nisso quando presente (FEATURE-003, ver `buildUserPrompt`). */
+export interface KnowledgeDocumentInput {
+  titulo: string
+  conteudo: string
+}
+
 export interface GenerateConversationalResponseInput {
   apiKey: string
   userMessage: string
@@ -41,6 +47,7 @@ export interface GenerateConversationalResponseInput {
   knownContext?: Record<string, unknown>
   intent?: string
   decision?: string
+  knowledgeDocuments?: KnowledgeDocumentInput[]
 }
 
 export interface GenerateConversationalResponseResult {
@@ -180,6 +187,17 @@ function buildUserPrompt(input: GenerateConversationalResponseInput): string {
       .map(([chave, valor]) => `${chave}: ${valor}`)
       .join("; ")
     linhas.push(`Contexto já conhecido sobre a candidata: ${contexto}`)
+  }
+  if (input.knowledgeDocuments?.length) {
+    const documentos = input.knowledgeDocuments
+      .map((doc, i) => `${i + 1}. ${doc.titulo}: ${doc.conteudo}`)
+      .join("\n")
+    linhas.push(`DOCUMENTOS OFICIAIS ENCONTRADOS para responder esta pergunta:\n${documentos}`)
+    linhas.push(
+      "Responda usando SOMENTE as informações dos documentos acima — nunca invente, nunca generalize, nunca " +
+        "complete com conhecimento fora deles. Se os documentos não cobrirem o que foi perguntado, diga que não " +
+        "tem essa informação agora, sem tentar adivinhar.",
+    )
   }
   linhas.push(`Mensagem da candidata: "${input.userMessage}"`)
   linhas.push("Gere a próxima fala da Sofia usando a ferramenta return_agent_message.")

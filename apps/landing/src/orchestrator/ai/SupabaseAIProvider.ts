@@ -104,6 +104,7 @@ export class SupabaseAIProvider implements AIProvider {
         userMessage: request.prompt,
         ...passthrough,
         ...(Object.keys(context).length > 0 ? { knownContext: context } : {}),
+        ...(request.knowledgeDocuments?.length ? { knowledgeDocuments: request.knowledgeDocuments } : {}),
       },
     }
   }

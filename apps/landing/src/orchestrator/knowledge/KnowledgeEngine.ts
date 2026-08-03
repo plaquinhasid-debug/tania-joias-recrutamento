@@ -27,6 +27,76 @@ function normalize(texto: string): string {
     .replace(/[̀-ͯ]/g, "")
 }
 
+/**
+ * Comprimento do prefixo comparado pelo stemming leve de `searchByQuestion`
+ * (ver `stemMatches` abaixo). Só usado ali — nunca em `search()`.
+ */
+const STEM_LENGTH = 5
+
+/**
+ * Stemming leve (v1 — sem busca semântica, conforme pedido): duas palavras
+ * "casam" se os primeiros `STEM_LENGTH` caracteres forem iguais, o que
+ * resolve variação de gênero/número em português sem dicionário nenhum
+ * ("receb-o" vs. "receb-e", "aprovad-a" vs. "aprovad-o", "primeir-as" vs.
+ * "primeir-o"). Corrige o empate confirmado ao vivo na pergunta do
+ * "primeiro mostruário": a candidata usa "recebo"/"primeiras"/"aprovada",
+ * os documentos usam "recebe"/"primeiro"/"aprovado" — comparação exata
+ * nunca batia. Palavras menores que `STEM_LENGTH` (de qualquer um dos dois
+ * lados) exigem igualdade exata — prefixo curto demais vira ruído (ex.:
+ * "der" não pode "casar" com qualquer palavra que comece com "der").
+ */
+function stemMatches(keyword: string, palavra: string): boolean {
+  if (keyword.length < STEM_LENGTH || palavra.length < STEM_LENGTH) {
+    return keyword === palavra
+  }
+  return keyword.slice(0, STEM_LENGTH) === palavra.slice(0, STEM_LENGTH)
+}
+
+/** Quebra um texto normalizado em palavras (separador = qualquer caractere que não seja letra/dígito) — usado só pelo stemming acima, nunca por `search()` (que continua com substring simples). */
+function tokenizar(texto: string): string[] {
+  return normalize(texto)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+}
+
+/** `true` se alguma palavra do texto "casa" (via stemming) com a palavra-chave. */
+function algumaPalavraCasa(texto: string, keyword: string): boolean {
+  return tokenizar(texto).some((palavra) => stemMatches(keyword, palavra))
+}
+
+/** `true` se a palavra-chave bate (via stemming) em título, conteúdo, tags ou palavrasChave do documento — usado só por `searchByQuestion`, nunca por `search()`. */
+function documentoCasaComPalavraChave(documento: KnowledgeDocument, keyword: string): boolean {
+  return (
+    algumaPalavraCasa(documento.titulo, keyword) ||
+    algumaPalavraCasa(documento.conteudo, keyword) ||
+    documento.tags.some((tag) => algumaPalavraCasa(tag, keyword)) ||
+    documento.palavrasChave.some((p) => algumaPalavraCasa(p, keyword))
+  )
+}
+
+/**
+ * Segundo critério de desempate de `searchByQuestion`, usado só quando dois
+ * ou mais documentos empatam em `pontos` (mesma quantidade de
+ * palavras-chave batendo em algum lugar) — corrige o empate confirmado ao
+ * vivo em "Se a peça der defeito, como funciona?": com-001-consignacao
+ * vencia com-003-troca-defeito por "prioridade", mesmo com "defeito" — a
+ * palavra mais específica da pergunta — batendo só no corpo do texto de um
+ * e no título E no id do outro. Título/id são escritos deliberadamente para
+ * resumir o assunto do documento; bater ali é sinal mais forte de
+ * relevância do que bater só em conteudo/tags/palavrasChave. Cada palavra
+ * conta uma vez por campo (bate nos dois = 2), via o mesmo stemming acima.
+ * Nunca decide sozinho — `pontos` continua vindo primeiro no `sort()` — e
+ * nunca altera o comportamento de `search()`.
+ */
+function contarAcertosNoTituloOuId(documento: KnowledgeDocument, keywords: string[]): number {
+  let acertos = 0
+  for (const keyword of keywords) {
+    if (algumaPalavraCasa(documento.titulo, keyword)) acertos += 1
+    if (algumaPalavraCasa(documento.id, keyword)) acertos += 1
+  }
+  return acertos
+}
+
 export class KnowledgeEngine {
   private readonly repository: KnowledgeRepository
 
@@ -127,11 +197,14 @@ export class KnowledgeEngine {
 
   /**
    * Busca a partir de uma PERGUNTA em linguagem natural (v1 — extração de
-   * palavras-chave, sem busca semântica). `search({texto})` sozinho falha
-   * pra perguntas reais porque exige a frase inteira como substring; aqui
-   * extrai as palavras relevantes (`extractKeywords`) e busca cada uma
-   * separadamente, unindo os resultados e ranqueando por quantas palavras
-   * diferentes bateram em cada documento (desempate por prioridade).
+   * palavras-chave + stemming leve, sem busca semântica). `search({texto})`
+   * sozinho falha pra perguntas reais porque exige a frase inteira como
+   * substring; aqui extrai as palavras relevantes (`extractKeywords`) e
+   * verifica cada uma contra título/conteúdo/tags/palavrasChave de cada
+   * documento visível, via `stemMatches` (casa variações de gênero/número,
+   * ex. "recebo"/"recebe") — ranqueando por quantas palavras diferentes
+   * bateram (`pontos`), com empate resolvido primeiro por acerto em
+   * título/id (`contarAcertosNoTituloOuId`) e só depois por `prioridade`.
    */
   async searchByQuestion(
     pergunta: string,
@@ -146,21 +219,21 @@ export class KnowledgeEngine {
       return []
     }
 
-    const pontosPorId = new Map<string, { documento: KnowledgeDocument; pontos: number }>()
-    for (const keyword of keywords) {
-      const encontrados = await this.search({ texto: keyword, includeInternal: options?.includeInternal })
-      for (const documento of encontrados) {
-        const atual = pontosPorId.get(documento.id)
-        if (atual) {
-          atual.pontos += 1
-        } else {
-          pontosPorId.set(documento.id, { documento, pontos: 1 })
-        }
-      }
-    }
+    // Mesma trava de visibilidade de `search()` — sem nenhum outro filtro,
+    // só pra obter o conjunto de documentos elegíveis.
+    const documentosVisiveis = await this.search({ includeInternal: options?.includeInternal })
 
-    const resultado = [...pontosPorId.values()]
-      .sort((a, b) => b.pontos - a.pontos || b.documento.prioridade - a.documento.prioridade)
+    const resultado = documentosVisiveis
+      .map((documento) => ({
+        documento,
+        pontos: keywords.filter((keyword) => documentoCasaComPalavraChave(documento, keyword)).length,
+        acertosTitulo: contarAcertosNoTituloOuId(documento, keywords),
+      }))
+      .filter((r) => r.pontos > 0)
+      .sort(
+        (a, b) =>
+          b.pontos - a.pontos || b.acertosTitulo - a.acertosTitulo || b.documento.prioridade - a.documento.prioridade,
+      )
       .slice(0, limite)
       .map((r) => r.documento)
 
