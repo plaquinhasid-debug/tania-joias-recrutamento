@@ -101,3 +101,48 @@ export function useSaveSofiaIaAtiva() {
     },
   })
 }
+
+const SOFIA_PERGUNTAS_IA_ATIVA_KEY = "sofia_perguntas_ia_ativa"
+
+async function fetchSofiaPerguntasIaAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", SOFIA_PERGUNTAS_IA_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useSofiaPerguntasIaAtiva() {
+  return useQuery({
+    queryKey: ["settings", SOFIA_PERGUNTAS_IA_ATIVA_KEY],
+    queryFn: fetchSofiaPerguntasIaAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveSofiaPerguntasIaAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: SOFIA_PERGUNTAS_IA_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            "Liga/desliga a Sofia respondendo perguntas de negócio reais da candidata (via IA + base de conhecimento) durante a conversa (FEATURE-004). Quando desativado, comportamento idêntico ao roteiro fixo de hoje.",
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", SOFIA_PERGUNTAS_IA_ATIVA_KEY], ativa)
+    },
+  })
+}

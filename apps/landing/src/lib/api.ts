@@ -140,6 +140,32 @@ export async function fetchSofiaReacao(params: SofiaReacaoParams): Promise<strin
   }
 }
 
+const SOFIA_CONFIG_TIMEOUT_MS = 4000
+
+/**
+ * Busca as flags de comportamento da Sofia (Edge Function `sofia-config`,
+ * FEATURE-004) — hoje só `perguntas_ia_ativa`. Chamada uma vez por
+ * conversa (`useSofiaFlow.ts`, em `beginIntro`). Nunca lança — qualquer
+ * falha, timeout ou flag ausente cai em `false` (fail-closed: comportamento
+ * idêntico ao roteiro fixo de hoje).
+ */
+export async function fetchSofiaConfig(): Promise<{ perguntasIaAtiva: boolean }> {
+  try {
+    const invokePromise = supabase.functions.invoke("sofia-config", { body: {} })
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("sofia-config timeout")), SOFIA_CONFIG_TIMEOUT_MS)
+    })
+    const { data, error } = await Promise.race([invokePromise, timeoutPromise])
+    if (error) throw error
+
+    const ativa = (data as { perguntas_ia_ativa?: unknown } | null)?.perguntas_ia_ativa
+    return { perguntasIaAtiva: ativa === true }
+  } catch (err) {
+    console.warn("[sofia] falha ao buscar configuração, perguntas por IA ficam desligadas", err)
+    return { perguntasIaAtiva: false }
+  }
+}
+
 /**
  * Chama a Edge Function `finalize-candidate`, que calcula o IPR e decide o
  * status do lead server-side. Esta é a ÚNICA chamada que pode lançar — o

@@ -16,6 +16,8 @@ import {
   useSaveCidadesAtendidas,
   useSofiaIaAtiva,
   useSaveSofiaIaAtiva,
+  useSofiaPerguntasIaAtiva,
+  useSaveSofiaPerguntasIaAtiva,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -29,6 +31,18 @@ export default function SettingsPage() {
     try {
       await saveSofiaIaAtiva.mutateAsync(checked)
       toast.success(checked ? "Análise por IA da Sofia ativada." : "Análise por IA da Sofia desativada.")
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: perguntasIaAtiva, isLoading: perguntasIaLoading } = useSofiaPerguntasIaAtiva()
+  const savePerguntasIaAtiva = useSaveSofiaPerguntasIaAtiva()
+
+  async function handleTogglePerguntasIa(checked: boolean) {
+    try {
+      await savePerguntasIaAtiva.mutateAsync(checked)
+      toast.success(checked ? "Sofia passou a responder perguntas por IA." : "Sofia parou de responder perguntas por IA.")
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
     }
@@ -105,6 +119,39 @@ export default function SettingsPage() {
                 checked={Boolean(sofiaIaAtiva)}
                 onCheckedChange={(checked) => void handleToggleSofiaIa(checked)}
                 disabled={saveSofiaIaAtiva.isPending}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>Sofia — Responder perguntas por IA</CardTitle>
+          <CardDescription>
+            Quando ativado, se a candidata digitar uma pergunta de negócio no meio da conversa (ex.: "quanto eu
+            ganho de comissão?"), a Sofia busca a resposta na base de conhecimento oficial, responde usando IA
+            (Claude) e retoma a mesma pergunta do roteiro em seguida — nunca pula nem grava a pergunta como se
+            fosse resposta. Quando desativado, o texto digitado é registrado como resposta normal, exatamente
+            como sempre foi. Nunca afeta a aprovação/reprovação automática.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {perguntasIaLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="sofia-perguntas-ia-ativa">Perguntas por IA ativadas</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Afeta a conversa que a candidata vê em tempo real — teste antes de deixar ligado.
+                </p>
+              </div>
+              <Switch
+                id="sofia-perguntas-ia-ativa"
+                checked={Boolean(perguntasIaAtiva)}
+                onCheckedChange={(checked) => void handleTogglePerguntasIa(checked)}
+                disabled={savePerguntasIaAtiva.isPending}
               />
             </div>
           )}

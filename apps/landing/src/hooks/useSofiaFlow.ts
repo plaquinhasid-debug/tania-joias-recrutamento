@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import type { FinalizeCandidatePayload, FinalizeCandidateResponse } from "@tania-joias/shared"
 
-import { fetchSofiaReacao, finalizeCandidate, insertAnswer } from "@/lib/api"
+import { fetchSofiaConfig, fetchSofiaReacao, finalizeCandidate, insertAnswer } from "@/lib/api"
 import { getFbp, getOrBuildFbc, getOrCaptureFbclid } from "@/lib/tracking"
 import type { UtmParams } from "@/lib/tracking"
 import {
@@ -11,7 +11,7 @@ import {
   findNextStepIndex,
   type SofiaStep,
 } from "@/data/sofia-script"
-import { createSofiaOrchestrator } from "@/orchestrator"
+import { AIGateway, SupabaseAIProvider, answerCandidateQuestion, createSofiaOrchestrator } from "@/orchestrator"
 import type { SofiaOrchestrator } from "@/orchestrator"
 import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
 
@@ -25,6 +25,8 @@ const CAMPOS_COM_REACAO_CONTEXTUAL: ReadonlySet<SofiaAnswerKey> = new Set(["prof
 
 const INTRO_LINE_DELAY_MS = 650
 const CLOSING_LINE_DELAY_MS = 700
+/** Timeout curto pro pipeline de perguntas (FEATURE-004) — mais apertado que o padrão do AIGateway (20s) pra nunca deixar a candidata esperando muito. */
+const CANDIDATE_QUESTION_TIMEOUT_MS = 6000
 
 function newId(): string {
   return crypto.randomUUID()
@@ -78,6 +80,13 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   if (orchestratorRef.current === null) {
     orchestratorRef.current = createSofiaOrchestrator(sessionId)
   }
+
+  // FEATURE-004: liga/desliga a Sofia respondendo perguntas de negócio reais
+  // no meio da conversa. Buscado uma vez em `beginIntro` (`fetchSofiaConfig`,
+  // fail-closed em `false`) e guardado num ref — não precisa re-renderizar
+  // nada quando muda, e o valor não pode mudar no meio de uma conversa já
+  // em andamento.
+  const perguntasIaAtivaRef = useRef(false)
 
   const pushBotLine = useCallback(async (text: string, delayMs: number) => {
     setBotTyping(true)
@@ -218,22 +227,71 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     [pushBotLine, runSubmission],
   )
 
+  /**
+   * FEATURE-004: a candidata digitou uma pergunta de negócio (ex.: "quanto
+   * eu ganho de comissão?") em vez de responder de fato à etapa atual. Busca
+   * a resposta (KnowledgeEngine → IA → ResponseComposer) e mostra numa
+   * bolha; a pergunta original é retomada numa SEGUNDA bolha separada, em
+   * vez de anexada na mesma mensagem via `currentQuestion`.
+   *
+   * Por quê: testado ao vivo e descoberto que a IA quase sempre fecha a
+   * própria resposta com uma pergunta de engajamento (ex.: "Faz sentido pra
+   * você?", parte do PLAYBOOK-001). Se `currentQuestion` fosse passado, o
+   * `ResponseComposer` corretamente descartaria essa resposta por
+   * `MULTIPLE_QUESTIONS` (regra do FEATURE-002.1: nunca duas perguntas na
+   * mesma mensagem) — na prática isso fazia cair no fallback quase sempre.
+   * Sem `currentQuestion`, a resposta da IA fica livre pra ter sua própria
+   * pergunta (dentro do limite de 1), e a pergunta do roteiro vem depois,
+   * numa fala separada — sem colidir com nenhuma política.
+   *
+   * NUNCA lança: `answerCandidateQuestion` já tem seu próprio fallback
+   * seguro; o try/catch aqui é só uma rede adicional pra garantir que a
+   * candidata nunca fica travada.
+   */
+  const handleCandidateQuestion = useCallback(
+    async (step: SofiaStep, pergunta: string) => {
+      setBotTyping(true)
+      try {
+        const gateway = new AIGateway({
+          provider: new SupabaseAIProvider({ sessionId }),
+          timeoutMs: CANDIDATE_QUESTION_TIMEOUT_MS,
+        })
+        const resultado = await answerCandidateQuestion({
+          pergunta,
+          sessionId,
+          aiGateway: gateway,
+        })
+        setBotTyping(false)
+        await pushBotLine(resultado.composed.message, 300)
+        orchestratorRef.current?.processTurn(
+          { type: "bot_message", texto: resultado.composed.message, origem: "ia" },
+          { fase: "asking", answers },
+        )
+        await pushBotLine(step.question, 450)
+      } catch (err) {
+        console.warn("[sofia] falha ao responder pergunta da candidata, retomando a mesma etapa", err)
+        setBotTyping(false)
+        await pushBotLine(step.question, 300)
+      }
+    },
+    [answers, pushBotLine, sessionId],
+  )
+
   const submitAnswer = useCallback(
     (step: SofiaStep, value: string | number | boolean, displayText: string) => {
-      const updatedAnswers = { ...answers, [step.key]: value } as SofiaAnswers
+      pushUserMessage(displayText)
+
+      const provisionalAnswers = { ...answers, [step.key]: value } as SofiaAnswers
 
       // Se a candidata não tem Instagram, o campo fica explicitamente null
       // (a etapa "instagram" nunca será perguntada, pois é pulada).
       if (step.key === "possui_instagram" && value === false) {
-        updatedAnswers.instagram = null
+        provisionalAnswers.instagram = null
       }
 
-      setAnswers(updatedAnswers)
-      pushUserMessage(displayText)
-
-      orchestratorRef.current?.processTurn(
+      const action = orchestratorRef.current?.processTurn(
         { type: "user_answer", campo: step.key, valor: value },
-        { fase: "asking", answers: updatedAnswers },
+        { fase: "asking", answers: provisionalAnswers },
       )
 
       void insertAnswer({
@@ -243,14 +301,29 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         answerValue: String(displayText),
       })
 
-      void advanceAfterAnswer(updatedAnswers, stepIndex + 1, step.key)
+      // FEATURE-004: com a flag desligada, `perguntasIaAtivaRef.current` é
+      // sempre `false` e este bloco nunca roda — comportamento idêntico ao
+      // de sempre. Com a flag ligada, uma pergunta detectada NUNCA é
+      // gravada como resposta nem avança a etapa — a Sofia responde e
+      // retoma a mesma pergunta.
+      if (perguntasIaAtivaRef.current && action?.type === "ANSWER_WITH_TOOL" && typeof value === "string") {
+        void handleCandidateQuestion(step, value)
+        return
+      }
+
+      setAnswers(provisionalAnswers)
+      void advanceAfterAnswer(provisionalAnswers, stepIndex + 1, step.key)
     },
-    [answers, pushUserMessage, sessionId, stepIndex, advanceAfterAnswer],
+    [answers, pushUserMessage, sessionId, stepIndex, advanceAfterAnswer, handleCandidateQuestion],
   )
 
   const beginIntro = useCallback(() => {
     if (introStarted.current) return
     introStarted.current = true
+
+    void fetchSofiaConfig().then(({ perguntasIaAtiva }) => {
+      perguntasIaAtivaRef.current = perguntasIaAtiva
+    })
 
     orchestratorRef.current?.processTurn({ type: "intro_started" }, { fase: "intro", answers: {} })
 

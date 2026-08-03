@@ -21,8 +21,18 @@
 //   - modelo, tokens de saída e timeout fixos no servidor;
 //   - rate limiter em memória best-effort (ver aviso na função correspondente);
 //   - resposta da Anthropic validada por tool-use forçado antes de sair daqui.
-// Isto NÃO é proteção definitiva — é a primeira camada, proporcional ao MVP,
-// e a função continua desligada do fluxo real da candidata nesta fase.
+// Isto NÃO é proteção definitiva — é a primeira camada, proporcional ao MVP.
+//
+// FEATURE-004: trava adicional de negócio, além do contrato técnico acima —
+// checa a flag `sofia_perguntas_ia_ativa` (service role) antes de chamar a
+// Anthropic. Isso é DEFESA EM PROFUNDIDADE: o cliente (`useSofiaFlow.ts`) já
+// checa essa mesma flag via `sofia-config` antes de sequer tentar chamar
+// esta função — mas nunca confia só nisso. Se a flag estiver desligada (ou a
+// checagem falhar), responde `success:false` com `FEATURE_DISABLED`; quem
+// chama (`SupabaseAIProvider`) trata isso como qualquer outra falha de IA —
+// cai no fallback seguro do `ResponseComposer`, nunca propaga.
+import { createClient } from "npm:@supabase/supabase-js@2"
+
 import {
   AgentAiError,
   type AgentAiErrorCode,
@@ -65,6 +75,7 @@ type ErrorCode =
   | "PAYLOAD_TOO_LARGE"
   | "UNSUPPORTED_OPERATION"
   | "UNKNOWN_AGENT"
+  | "FEATURE_DISABLED"
   | "AI_TIMEOUT"
   | "AI_RATE_LIMITED"
   | "AI_PROVIDER_ERROR"
@@ -111,6 +122,7 @@ const PUBLIC_ERROR_MESSAGES: Record<ErrorCode, string> = {
   PAYLOAD_TOO_LARGE: "Payload excede o tamanho permitido.",
   UNSUPPORTED_OPERATION: "Operação não suportada.",
   UNKNOWN_AGENT: "Agente desconhecido.",
+  FEATURE_DISABLED: "Recurso desativado no momento.",
   AI_TIMEOUT: "Tempo limite ao consultar o provedor de IA.",
   AI_RATE_LIMITED: "Limite de requisições atingido — tente novamente em instantes.",
   AI_PROVIDER_ERROR: "Falha no provedor de IA.",
@@ -127,6 +139,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   PAYLOAD_TOO_LARGE: 413,
   UNSUPPORTED_OPERATION: 400,
   UNKNOWN_AGENT: 400,
+  FEATURE_DISABLED: 403,
   AI_TIMEOUT: 504,
   AI_RATE_LIMITED: 429,
   AI_PROVIDER_ERROR: 502,
@@ -423,6 +436,12 @@ Deno.serve(async (req) => {
   const request = validation.value
   const sessionIdHash = await hashForLogs(request.sessionId)
 
+  const perguntasIaAtiva = await isPerguntasIaAtiva()
+  if (!perguntasIaAtiva) {
+    logCall({ requestId, success: false, errorCode: "FEATURE_DISABLED", sessionIdHash })
+    return errorResponse(requestId, operation, "FEATURE_DISABLED", Date.now() - start, corsHeaders)
+  }
+
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")
   if (!anthropicApiKey) {
     logCall({ requestId, success: false, errorCode: "AI_PROVIDER_ERROR", reason: "missing_api_key", sessionIdHash })
@@ -476,6 +495,29 @@ Deno.serve(async (req) => {
     return errorResponse(requestId, operation, code, latencyMs, corsHeaders)
   }
 })
+
+/**
+ * FEATURE-004: mesma leitura de `settings` que `sofia-config`/`sofia-reagir`
+ * já fazem — fail-closed (qualquer erro vira `false`, nunca deixa passar
+ * "por acaso" quando algo falha).
+ */
+async function isPerguntasIaAtiva(): Promise<boolean> {
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    )
+    const { data } = await supabase
+      .from("settings")
+      .select("valor")
+      .eq("chave", "sofia_perguntas_ia_ativa")
+      .maybeSingle()
+    return Boolean((data?.valor as { ativa?: boolean } | undefined)?.ativa)
+  } catch (err) {
+    console.error("[agent-ai-gateway] falha ao checar sofia_perguntas_ia_ativa, tratando como desligada", err)
+    return false
+  }
+}
 
 /** Hash não reversível do sessionId só para correlacionar logs sem gravar o valor real (RFC-011, Objetivo 12). */
 async function hashForLogs(value: string): Promise<string> {
