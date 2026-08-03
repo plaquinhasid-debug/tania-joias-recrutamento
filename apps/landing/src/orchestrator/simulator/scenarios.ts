@@ -217,12 +217,44 @@ export const SCENARIO_DESISTENCIA_DEFINITION: ScenarioDefinition = {
   },
 }
 
+/**
+ * Candidata pergunta 2 dúvidas reais de negócio (uma coberta pela base de
+ * conhecimento oficial, outra não) antes de continuar a entrevista
+ * (FEATURE-003, Objetivo 8) — confirma que o `IntentClassifier`/
+ * `DecisionEngine` continuam roteando essas perguntas pra
+ * `ANSWER_WITH_TOOL` mesmo com perguntas de negócio de verdade, não só
+ * frases fictícias. O `answerCandidateQuestion()` em si (KnowledgeEngine →
+ * AIGateway → ResponseComposer) não é chamado pelo Simulator — ele ainda
+ * não está conectado ao `SofiaOrchestrator` (ver `answerCandidateQuestion.examples.ts`
+ * pra testes do pipeline propriamente dito).
+ */
+export const SCENARIO_PERGUNTAS_CONHECIMENTO: SimulationInputTurn[] = [
+  { message: "Meu nome é Beatriz Souza", expectedIntent: "ANSWER", answer: { objective: "nome", value: "Beatriz Souza" } },
+  { message: "Moro em São Bernardo do Campo", expectedIntent: "ANSWER", answer: { objective: "cidade", value: "São Bernardo do Campo" } },
+  { message: "Quanto eu ganho de comissão?", expectedIntent: "QUESTION" },
+  { message: "Vocês têm alguma promoção de Natal esse ano?", expectedIntent: "QUESTION" },
+  { message: "Sou bancária", expectedIntent: "ANSWER", answer: { objective: "profissao", value: "Bancária" } },
+]
+
+export const SCENARIO_PERGUNTAS_CONHECIMENTO_DEFINITION: ScenarioDefinition = {
+  name: "PERGUNTAS_CONHECIMENTO",
+  turns: SCENARIO_PERGUNTAS_CONHECIMENTO,
+  expected: {
+    outcome: "IN_PROGRESS",
+    intents: ["ANSWER", "ANSWER", "QUESTION", "QUESTION", "ANSWER"],
+    decisions: ["CONTINUE_FLOW", "CONTINUE_FLOW", "ANSWER_WITH_TOOL", "ANSWER_WITH_TOOL", "CONTINUE_FLOW"],
+    completedObjectives: ["nome", "cidade", "profissao"],
+    pendingObjectives: ["empresa", "experiencia", "instagram", "whatsapp", "motivacao", "tempo"],
+  },
+}
+
 export const SCENARIOS = {
   INTERESSADA: SCENARIO_INTERESSADA,
   SEM_EXPERIENCIA: SCENARIO_SEM_EXPERIENCIA,
   MUITAS_DUVIDAS: SCENARIO_MUITAS_DUVIDAS,
   OBJECAO: SCENARIO_OBJECAO,
   DESISTENCIA: SCENARIO_DESISTENCIA,
+  PERGUNTAS_CONHECIMENTO: SCENARIO_PERGUNTAS_CONHECIMENTO,
 } as const
 
 export type ScenarioName = keyof typeof SCENARIOS
@@ -233,4 +265,5 @@ export const SCENARIO_DEFINITIONS = {
   MUITAS_DUVIDAS: SCENARIO_MUITAS_DUVIDAS_DEFINITION,
   OBJECAO: SCENARIO_OBJECAO_DEFINITION,
   DESISTENCIA: SCENARIO_DESISTENCIA_DEFINITION,
+  PERGUNTAS_CONHECIMENTO: SCENARIO_PERGUNTAS_CONHECIMENTO_DEFINITION,
 } as const satisfies Record<ScenarioName, ScenarioDefinition>
