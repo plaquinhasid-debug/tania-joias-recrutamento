@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md — Tania Joias / Sofia
 
-> Atualizado em 2026-08-02 (rodada: mensagem de reprovação finalizada + trava de visibilidade no KnowledgeEngine). Mantido a cada mudança importante para não perder histórico entre sessões. Este arquivo descreve o estado real do código e da infraestrutura — não é um roadmap nem uma proposta.
+> Atualizado em 2026-08-03 (rodada: FEATURE-003 codificada e commitada — pipeline QUESTION → KnowledgeEngine → AIGateway → ResponseComposer). Mantido a cada mudança importante para não perder histórico entre sessões. Este arquivo descreve o estado real do código e da infraestrutura — não é um roadmap nem uma proposta.
 
 ---
 
@@ -43,17 +43,18 @@ Toda essa árvore vive em `apps/landing/src/orchestrator/` e é 100% tree-shaken
 - **AIGateway / AIProvider / AnthropicProvider (stub) / SupabaseAIProvider**: camada de abstração pronta para chamar `agent-ai-gateway` com segurança — nunca instanciada em produção.
 - **ResponseComposer / AcknowledgmentLibrary / TransitionLibrary / ResponsePolicies**: monta uma mensagem final (reconhecimento + conteúdo validado + transição + próxima pergunta) seguindo o `PLAYBOOK-001`, com políticas anti-promessa/anti-duas-perguntas e fallback seguro. Só testado via exemplos executáveis manualmente.
 - **Agent Simulator**: laboratório dev-only que roda o `SofiaOrchestrator` real turno a turno contra 5 cenários fictícios, fora do bundle.
+- **Pipeline FEATURE-003 (`orchestrator/pipeline/answerCandidateQuestion.ts`, novo)**: liga as 4 peças acima numa função só — `KnowledgeEngine.searchByQuestion()` → `AIGateway.request()` (com os documentos encontrados como base exclusiva) → `ResponseComposer.composeResponse()`. Sem documento relevante, a IA nunca é chamada; erro/timeout da IA cai no mesmo fallback seguro do Composer, nunca propaga. Especificação aprovada (objetivos numerados + critérios de aceite + não-implementar) e código commitado (`5dc1a0e`). **Falta**: deploy da `agent-ai-gateway` atualizada (aceita agora `knowledgeDocuments` no contrato), teste ao vivo com a IA real, cenários novos no Simulator. Continua shadow — nada em `useSofiaFlow.ts` chama isso ainda, e ligar ao chat real é uma decisão futura separada.
 
-**Em resumo**: existe uma arquitetura de agente completa e testada (perfil, memória, classificação de intenção, decisão, composição de resposta, ponte segura de IA) rodando **em paralelo, sem nenhum fio ligado à experiência real da candidata**. É exatamente um "shadow mode" — a FEATURE-003 (integrar só o caminho QUESTION → conhecimento → IA → resposta composta) é o primeiro passo planejado pra começar a conectar isso, e foi pausada por especificação incompleta.
+**Em resumo**: existe uma arquitetura de agente completa e testada (perfil, memória, classificação de intenção, decisão, composição de resposta, ponte segura de IA, e agora o pipeline de resposta a perguntas) rodando **em paralelo, sem nenhum fio ligado à experiência real da candidata**. É exatamente um "shadow mode".
 
 ## 3. O que está incompleto, quebrado ou é só placeholder
 
 - **Pasta `landing/` na raiz do repo** (fora de `apps/`) — um scaffold antigo, órfão, de um único commit ("Add landing page project", 29/07), fora do workspace npm (`package.json` raiz só inclui `apps/*` e `packages/*`). Não é usado por nada, mas está versionado — vale decidir se remove.
 - **`supabase/vercel.json.txt`** — arquivo solto na raiz de `supabase/`, extensão `.txt` (não `.json`), conteúdo de configuração de build Vercel. Parece um rascunho esquecido, não tracked ainda.
-- **Busca do `KnowledgeEngine` por palavra-chave (v1, sem busca semântica)** — `searchByQuestion()` resolve o caso comum, mas o desempate por prioridade pode favorecer um documento menos específico quando várias pontuam igual (ver exemplo "peça com defeito" testado ao vivo). Suficiente pra avançar a FEATURE-003; não é robusto o bastante pra ser a versão final.
+- **Busca do `KnowledgeEngine` por palavra-chave (v1, sem busca semântica)** — `searchByQuestion()` agora usa stemming leve + desempate por título/id (corrigido nesta rodada); 6/6 perguntas de teste retornam o documento certo em 1º lugar. Ainda não é busca semântica de verdade — limitação aceita para esta fase.
 - **Base de conhecimento oficial** — as duas divergências da v1.0 do COM-002 (filhos/estado civil e 4 vs. 5 cidades) foram resolvidas pelo Antonio na v1.1; a mensagem exata de reprovação por "desempregada" foi definida e já está em produção em `SOFIA_REJECTION_LINES` (`sofia-script.ts`); e o `KnowledgeDocument` já tem o campo `visibility` como trava estrutural (ver seção 2). Nenhuma pendência conhecida restante nesta frente.
 - **Sem migrations locais versionadas** (`supabase/migrations/` está vazio) — toda alteração de schema feita nesta sessão foi via `apply_migration` direto no projeto remoto; não há histórico de schema em arquivo no git.
-- **FEATURE-003** (integrar QUESTION → KnowledgeEngine → AIGateway → ResponseComposer) foi pedida, mas a especificação chegou cortada (sem objetivos numerados, sem seção de não-implementar/verificação) — nada foi codificado ainda.
+- **FEATURE-003** — código pronto e commitado, mas o deploy da Edge Function atualizada, o teste ao vivo com IA real e os cenários novos no Simulator ainda estão pendentes (ver seção 2).
 - **Nenhum test runner** (Vitest/Jest) instalado no monorepo — toda a verificação de RFC-007 em diante foi feita com "cenários executáveis" rodados manualmente via browser, não testes automatizados de verdade.
 - **Analytics/métricas de conversas reais** (taxa de abandono, perguntas mais frequentes sem resposta) não existe nenhuma automação — só o que dá pra ver manualmente via `logs`/`conversations`/`answers` no Supabase Studio ou no Radar do Admin.
 
