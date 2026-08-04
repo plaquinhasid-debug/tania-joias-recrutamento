@@ -13,6 +13,8 @@ import {
 } from "@/data/sofia-script"
 import { AIGateway, SupabaseAIProvider, answerCandidateQuestion, createSofiaOrchestrator } from "@/orchestrator"
 import type { SofiaOrchestrator } from "@/orchestrator"
+import { resolveNaturalConversationMode, type EffectiveNaturalConversationMode } from "@/orchestrator/naturalConversation/resolveMode"
+import { observeShadowTurn } from "@/orchestrator/naturalConversation/shadowObserver"
 import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
 
 /**
@@ -87,6 +89,12 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   // nada quando muda, e o valor não pode mudar no meio de uma conversa já
   // em andamento.
   const perguntasIaAtivaRef = useRef(false)
+
+  // FEATURE-005 Parte 5: modo da "condução natural" (OFF/SHADOW — ACTIVE já
+  // vem resolvido como SHADOW por `resolveNaturalConversationMode`). Mesmo
+  // padrão do ref acima: buscado uma vez em `beginIntro`, fail-safe em
+  // "OFF" (idêntico ao comportamento de hoje) até a resposta chegar.
+  const naturalConversationModeRef = useRef<EffectiveNaturalConversationMode>("OFF")
 
   const pushBotLine = useCallback(async (text: string, delayMs: number) => {
     setBotTyping(true)
@@ -306,7 +314,29 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
       // de sempre. Com a flag ligada, uma pergunta detectada NUNCA é
       // gravada como resposta nem avança a etapa — a Sofia responde e
       // retoma a mesma pergunta.
-      if (perguntasIaAtivaRef.current && action?.type === "ANSWER_WITH_TOOL" && typeof value === "string") {
+      const seraInterceptadaPelaFeature004 =
+        perguntasIaAtivaRef.current && action?.type === "ANSWER_WITH_TOOL" && typeof value === "string"
+
+      // FEATURE-005 Parte 4: observação SHADOW (mode "OFF" por padrão — ver
+      // `shadowObserver.ts`). Só roda em campos de texto livre (nunca em
+      // "trabalha", que continua 100% hardcoded). Nunca lança, nunca exibe
+      // nada, nunca altera `action`/o fluxo abaixo — só observa o que JÁ foi
+      // decidido por `action`/`seraInterceptadaPelaFeature004`.
+      if (typeof value === "string" && step.key !== "trabalha") {
+        const proximoIndice = findNextStepIndex(stepIndex + 1, provisionalAnswers)
+        observeShadowTurn({
+          mode: naturalConversationModeRef.current,
+          sessionId,
+          fieldKey: step.key,
+          currentQuestion: step.question,
+          nextQuestion: proximoIndice < SOFIA_STEPS.length ? SOFIA_STEPS[proximoIndice].question : undefined,
+          candidateAnswer: value,
+          currentFlowAcceptedAnswer: !seraInterceptadaPelaFeature004,
+          knownContext: provisionalAnswers as Record<string, unknown>,
+        })
+      }
+
+      if (seraInterceptadaPelaFeature004) {
         void handleCandidateQuestion(step, value)
         return
       }
@@ -321,8 +351,20 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     if (introStarted.current) return
     introStarted.current = true
 
-    void fetchSofiaConfig().then(({ perguntasIaAtiva }) => {
+    void fetchSofiaConfig().then(({ perguntasIaAtiva, conducaoNaturalModo }) => {
       perguntasIaAtivaRef.current = perguntasIaAtiva
+
+      const resolved = resolveNaturalConversationMode(conducaoNaturalModo)
+      naturalConversationModeRef.current = resolved.effectiveMode
+      // Objetivo 9 (Parte 5): log só em dev, sem nenhum dado da candidata —
+      // só o modo carregado e a origem (distingue "ACTIVE tratado como
+      // SHADOW" de um SHADOW real, por exemplo).
+      if (import.meta.env.DEV) {
+        console.debug("[NaturalConversationConfig]", {
+          modoCarregado: resolved.effectiveMode,
+          fonte: resolved.sourceTag,
+        })
+      }
     })
 
     orchestratorRef.current?.processTurn({ type: "intro_started" }, { fase: "intro", answers: {} })

@@ -25,7 +25,9 @@ export function Hero({ onOpenSofia }: HeroProps) {
             Transforme seu tempo livre em renda extra revendendo semijoias.
           </h1>
 
-          <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-6 text-xl font-semibold text-gold">Ganhe até 40% de comissão!</p>
+
+          <p className="mt-3 max-w-xl text-lg text-muted-foreground">
             Faça parte da equipe da Tania Joias. Sem investimento inicial. Treinamento
             completo. Suporte.
           </p>

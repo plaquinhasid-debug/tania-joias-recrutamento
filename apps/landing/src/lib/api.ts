@@ -2,9 +2,11 @@ import { supabase } from "@/lib/supabase"
 import type { SofiaAnswers } from "@/types/sofia"
 import {
   finalizeCandidateResponseSchema,
+  sofiaConfigResponseSchema,
   type Database,
   type FinalizeCandidatePayload,
   type FinalizeCandidateResponse,
+  type NaturalConversationModeValue,
 } from "@tania-joias/shared"
 
 type EventoFunil = Database["public"]["Enums"]["evento_funil"]
@@ -143,13 +145,33 @@ export async function fetchSofiaReacao(params: SofiaReacaoParams): Promise<strin
 const SOFIA_CONFIG_TIMEOUT_MS = 4000
 
 /**
- * Busca as flags de comportamento da Sofia (Edge Function `sofia-config`,
- * FEATURE-004) — hoje só `perguntas_ia_ativa`. Chamada uma vez por
- * conversa (`useSofiaFlow.ts`, em `beginIntro`). Nunca lança — qualquer
- * falha, timeout ou flag ausente cai em `false` (fail-closed: comportamento
- * idêntico ao roteiro fixo de hoje).
+ * Busca as flags de comportamento da Sofia (Edge Function `sofia-config`).
+ * Chamada uma vez por conversa (`useSofiaFlow.ts`, em `beginIntro`). Nunca
+ * lança — qualquer falha, timeout, formato inesperado ou valor desconhecido
+ * cai no fail-safe de cada campo (`perguntasIaAtiva: false`,
+ * `conducaoNaturalModo: "OFF"`) — sempre o comportamento idêntico ao
+ * roteiro fixo de hoje, nunca o oposto.
+ *
+ * A resposta é validada com `sofiaConfigResponseSchema` (via `.safeParse`,
+ * nunca `.parse`) — mesmo se a Edge Function responder 200 com um formato
+ * inesperado (deploy antigo, campo faltando, valor fora do enum), o
+ * `safeParse` falha sem lançar e o catch abaixo nem chega a rodar; quem
+ * decide o fallback aqui é sempre o `success: false` do Zod.
  */
-export async function fetchSofiaConfig(): Promise<{ perguntasIaAtiva: boolean }> {
+export async function fetchSofiaConfig(): Promise<{
+  perguntasIaAtiva: boolean
+  /**
+   * `undefined` quando a config não pôde ser lida de verdade (erro, timeout,
+   * formato inesperado — ex.: uma Edge Function antiga sem este campo) —
+   * distinto de um `"OFF"` real vindo do banco. `resolveNaturalConversationMode`
+   * (`orchestrator/naturalConversation/resolveMode.ts`) trata os dois casos
+   * como o mesmo comportamento (nunca reage), mas com `sourceTag` diferente
+   * pro log (Objetivo 9 da Parte 5) — permite diferenciar "configurado como
+   * OFF" de "não deu pra saber, ficou OFF por segurança".
+   */
+  conducaoNaturalModo: NaturalConversationModeValue | undefined
+}> {
+  const FALLBACK = { perguntasIaAtiva: false, conducaoNaturalModo: undefined }
   try {
     const invokePromise = supabase.functions.invoke("sofia-config", { body: {} })
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -158,11 +180,19 @@ export async function fetchSofiaConfig(): Promise<{ perguntasIaAtiva: boolean }>
     const { data, error } = await Promise.race([invokePromise, timeoutPromise])
     if (error) throw error
 
-    const ativa = (data as { perguntas_ia_ativa?: unknown } | null)?.perguntas_ia_ativa
-    return { perguntasIaAtiva: ativa === true }
+    const parsed = sofiaConfigResponseSchema.safeParse(data)
+    if (!parsed.success) {
+      console.warn("[sofia] resposta de sofia-config em formato inesperado, usando fallback seguro", parsed.error)
+      return FALLBACK
+    }
+
+    return {
+      perguntasIaAtiva: parsed.data.perguntas_ia_ativa,
+      conducaoNaturalModo: parsed.data.conducao_natural_modo,
+    }
   } catch (err) {
-    console.warn("[sofia] falha ao buscar configuração, perguntas por IA ficam desligadas", err)
-    return { perguntasIaAtiva: false }
+    console.warn("[sofia] falha ao buscar configuração, usando fallback seguro", err)
+    return FALLBACK
   }
 }
 

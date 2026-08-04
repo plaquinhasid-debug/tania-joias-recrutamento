@@ -26,7 +26,7 @@ const BENEFICIOS = [
   {
     icon: Banknote,
     title: "Excelente Margem de Lucro",
-    text: "Ganhe dinheiro revendendo produtos de alto valor percebido.",
+    text: "Ganhe até 40% de comissão revendendo produtos de alto valor percebido.",
   },
   {
     icon: Smartphone,

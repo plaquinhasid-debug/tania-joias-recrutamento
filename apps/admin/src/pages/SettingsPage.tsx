@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   useCidadesAtendidas,
   useSaveCidadesAtendidas,
@@ -18,6 +19,9 @@ import {
   useSaveSofiaIaAtiva,
   useSofiaPerguntasIaAtiva,
   useSaveSofiaPerguntasIaAtiva,
+  useSofiaConducaoNatural,
+  useSaveSofiaConducaoNatural,
+  type SavableNaturalConversationMode,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -43,6 +47,19 @@ export default function SettingsPage() {
     try {
       await savePerguntasIaAtiva.mutateAsync(checked)
       toast.success(checked ? "Sofia passou a responder perguntas por IA." : "Sofia parou de responder perguntas por IA.")
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: conducaoNaturalModo, isLoading: conducaoNaturalLoading } = useSofiaConducaoNatural()
+  const saveConducaoNatural = useSaveSofiaConducaoNatural()
+
+  async function handleChangeConducaoNatural(value: string) {
+    if (value !== "OFF" && value !== "SHADOW") return
+    try {
+      await saveConducaoNatural.mutateAsync(value as SavableNaturalConversationMode)
+      toast.success(value === "OFF" ? "Condução natural desligada." : "Condução natural em modo Shadow (só observação).")
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
     }
@@ -153,6 +170,47 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => void handleTogglePerguntasIa(checked)}
                 disabled={savePerguntasIaAtiva.isPending}
               />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>Sofia — Condução Natural</CardTitle>
+          <CardDescription>
+            No modo Shadow, a Sofia analisa as mensagens e prepara reações naturais, mas a candidata
+            continua vendo o fluxo atual sem nenhuma alteração. Nada disso afeta a aprovação/reprovação
+            automática.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {conducaoNaturalLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="sofia-conducao-natural">Modo</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  "Ativa" ainda não está disponível — só existe pra registrar a escolha, sem efeito.
+                </p>
+              </div>
+              <Select
+                value={conducaoNaturalModo ?? "OFF"}
+                onValueChange={(value) => void handleChangeConducaoNatural(value)}
+                disabled={saveConducaoNatural.isPending}
+              >
+                <SelectTrigger id="sofia-conducao-natural" className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OFF">Desligada — OFF</SelectItem>
+                  <SelectItem value="SHADOW">Somente observar — SHADOW</SelectItem>
+                  <SelectItem value="ACTIVE" disabled>
+                    Ativa — disponível após validação do modo Shadow
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
         </CardContent>

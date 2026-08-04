@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { Json } from "@tania-joias/shared"
+import type { Json, NaturalConversationModeValue } from "@tania-joias/shared"
 
 import { supabase } from "@/lib/supabase"
 import type { CidadesAtendidasValue } from "@/types"
@@ -143,6 +143,66 @@ export function useSaveSofiaPerguntasIaAtiva() {
     },
     onSuccess: (ativa) => {
       queryClient.setQueryData(["settings", SOFIA_PERGUNTAS_IA_ATIVA_KEY], ativa)
+    },
+  })
+}
+
+const SOFIA_CONDUCAO_NATURAL_KEY = "sofia_conducao_natural"
+
+/**
+ * Só OFF e SHADOW podem ser SALVOS pelo Admin nesta fase (FEATURE-005
+ * Parte 5, Objetivo 6/13) — ACTIVE existe no contrato mas ainda não tem
+ * comportamento implementado, então a UI nem oferece a opção de salvar
+ * esse valor. Se o valor lido do banco for "ACTIVE" (só aconteceria por
+ * uma mudança manual direto no SQL), `useSofiaConducaoNatural` ainda
+ * devolve o valor real pra exibição — só `useSaveSofiaConducaoNatural` é
+ * restrito.
+ */
+export type SavableNaturalConversationMode = "OFF" | "SHADOW"
+
+async function fetchSofiaConducaoNatural(): Promise<NaturalConversationModeValue> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", SOFIA_CONDUCAO_NATURAL_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const modo = (data?.valor as { modo?: unknown } | undefined)?.modo
+  if (modo === "OFF" || modo === "SHADOW" || modo === "ACTIVE") return modo
+  return "OFF"
+}
+
+export function useSofiaConducaoNatural() {
+  return useQuery({
+    queryKey: ["settings", SOFIA_CONDUCAO_NATURAL_KEY],
+    queryFn: fetchSofiaConducaoNatural,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveSofiaConducaoNatural() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (modo: SavableNaturalConversationMode) => {
+      if (modo !== "OFF" && modo !== "SHADOW") {
+        throw new Error(`Valor não permitido para sofia_conducao_natural: ${String(modo)}`)
+      }
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: SOFIA_CONDUCAO_NATURAL_KEY,
+          valor: { modo } as unknown as Json,
+          descricao:
+            'Controla o modo da "condução natural" da Sofia (FEATURE-005): OFF = comportamento atual, sem nenhuma mudança visível; SHADOW = classifica e observa em segundo plano, sem exibir nada pra candidata; ACTIVE = ainda não implementado. Default OFF.',
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return modo
+    },
+    onSuccess: (modo) => {
+      queryClient.setQueryData(["settings", SOFIA_CONDUCAO_NATURAL_KEY], modo)
     },
   })
 }

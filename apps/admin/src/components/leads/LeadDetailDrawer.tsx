@@ -50,7 +50,7 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   }, [lead?.id, lead?.observacoes])
 
   const defaultMessage = lead
-    ? `Olá ${lead.nome?.split(" ")[0]}! 🌸\n\nParabéns! Sua candidatura como revendedora foi aprovada.\n\nNossa equipe entrará em contato em breve com todos os detalhes.\n\nQualquer dúvida, estamos por aqui!\n\nAbraços,\nEquipe Tania Joias`
+    ? `Olá ${lead.nome?.split(" ")[0]}! 🌸\n\nBacana! Você passou pela primeira fase.\n\nNossa equipe entrará em contato em breve com os próximos passos.\n\nQualquer dúvida, estamos por aqui!\n\nAbraços,\nEquipe Tania Joias`
     : ""
 
   const waLink = lead ? whatsappLink(lead.telefone) : null
