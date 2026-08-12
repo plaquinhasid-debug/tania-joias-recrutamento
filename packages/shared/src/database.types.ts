@@ -236,6 +236,12 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           empresa_atual: string | null
+          estabilidade_profissional:
+            | Database["public"]["Enums"]["estabilidade_profissional_enum"]
+            | null
+          etapa_pos_aprovacao:
+            | Database["public"]["Enums"]["etapa_pos_aprovacao_enum"]
+            | null
           experiencia_vendas: boolean | null
           fbc: string | null
           fbclid: string | null
@@ -264,6 +270,7 @@ export type Database = {
           utm_medium: string | null
           utm_source: string | null
           whatsapp: boolean | null
+          whatsapp_automatico_enviado_em: string | null
         }
         Insert: {
           campanha?: string | null
@@ -273,6 +280,12 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           empresa_atual?: string | null
+          estabilidade_profissional?:
+            | Database["public"]["Enums"]["estabilidade_profissional_enum"]
+            | null
+          etapa_pos_aprovacao?:
+            | Database["public"]["Enums"]["etapa_pos_aprovacao_enum"]
+            | null
           experiencia_vendas?: boolean | null
           fbc?: string | null
           fbclid?: string | null
@@ -301,6 +314,7 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           whatsapp?: boolean | null
+          whatsapp_automatico_enviado_em?: string | null
         }
         Update: {
           campanha?: string | null
@@ -310,6 +324,12 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           empresa_atual?: string | null
+          estabilidade_profissional?:
+            | Database["public"]["Enums"]["estabilidade_profissional_enum"]
+            | null
+          etapa_pos_aprovacao?:
+            | Database["public"]["Enums"]["etapa_pos_aprovacao_enum"]
+            | null
           experiencia_vendas?: boolean | null
           fbc?: string | null
           fbclid?: string | null
@@ -338,6 +358,7 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           whatsapp?: boolean | null
+          whatsapp_automatico_enviado_em?: string | null
         }
         Relationships: [
           {
@@ -446,6 +467,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      estabilidade_profissional_enum: "ALTA" | "MEDIA" | "BAIXA"
+      etapa_pos_aprovacao_enum:
+        | "contatada"
+        | "confirmada"
+        | "ativa"
+        | "desistiu"
       evento_funil:
         | "landing_view"
         | "ad_click"
@@ -586,6 +613,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      estabilidade_profissional_enum: ["ALTA", "MEDIA", "BAIXA"],
+      etapa_pos_aprovacao_enum: [
+        "contatada",
+        "confirmada",
+        "ativa",
+        "desistiu",
+      ],
       evento_funil: [
         "landing_view",
         "ad_click",

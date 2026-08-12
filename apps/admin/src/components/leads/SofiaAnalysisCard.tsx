@@ -27,7 +27,7 @@ interface SofiaAnalysisCardProps {
   analysis: AiAnalysis | null | undefined
 }
 
-const PROXIMA_ACAO_VARIANT: Record<ProximaAcao, "success" | "gold" | "secondary"> = {
+export const PROXIMA_ACAO_VARIANT: Record<ProximaAcao, "success" | "gold" | "secondary"> = {
   ligar_imediatamente: "success",
   enviar_whatsapp: "success",
   analise_manual: "gold",

@@ -39,6 +39,20 @@
   --border: #e7e5e1;
   --input: #e7e5e1;
   --ring: #c6a664;
+
+  /* Chat da Sofia — paleta inspirada no WhatsApp, isolada do tema geral
+     (preto/dourado) do site. Usada só dentro de components/sofia/*. */
+  --wa-header: #075e54;
+  --wa-header-foreground: #ffffff;
+  --wa-chat-bg: #e5ddd5;
+  --wa-bubble-in: #ffffff;
+  --wa-bubble-out: #d9fdd3;
+  --wa-bubble-text: #111b21;
+  --wa-timestamp: #667781;
+  --wa-accent: #25d366;
+  --wa-accent-foreground: #ffffff;
+  --wa-input-bar: #f0f0f0;
+  --wa-track: rgba(255, 255, 255, 0.3);
 }
 
 .dark {
@@ -122,6 +136,14 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+}
+
+/* Papel de parede do chat da Sofia — um padrão sutil de pontinhos, no
+   mesmo espírito do fundo clássico do WhatsApp, sem depender de imagem. */
+.wa-wallpaper {
+  background-color: var(--wa-chat-bg);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 @keyframes accordion-down {

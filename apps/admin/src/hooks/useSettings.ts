@@ -150,15 +150,16 @@ export function useSaveSofiaPerguntasIaAtiva() {
 const SOFIA_CONDUCAO_NATURAL_KEY = "sofia_conducao_natural"
 
 /**
- * Só OFF e SHADOW podem ser SALVOS pelo Admin nesta fase (FEATURE-005
- * Parte 5, Objetivo 6/13) — ACTIVE existe no contrato mas ainda não tem
- * comportamento implementado, então a UI nem oferece a opção de salvar
- * esse valor. Se o valor lido do banco for "ACTIVE" (só aconteceria por
- * uma mudança manual direto no SQL), `useSofiaConducaoNatural` ainda
- * devolve o valor real pra exibição — só `useSaveSofiaConducaoNatural` é
- * restrito.
+ * OFF, SHADOW e ACTIVE podem ser salvos pelo Admin. ACTIVE liga só a parte
+ * DETERMINÍSTICA da condução natural (reconhecimentos curtos e fixos antes
+ * de nome/cidade/idade/whatsapp/Instagram, sem IA generativa nenhuma) — ver
+ * `getDeterministicAcknowledgment` em
+ * `apps/landing/src/orchestrator/naturalConversation/DeterministicReactionProvider.ts`.
+ * As perguntas abertas (profissão, empresa, experiência, tempo disponível,
+ * objetivo) continuam sem reação — isso depende de uma chamada real à
+ * Anthropic que ainda não existe.
  */
-export type SavableNaturalConversationMode = "OFF" | "SHADOW"
+export type SavableNaturalConversationMode = "OFF" | "SHADOW" | "ACTIVE"
 
 async function fetchSofiaConducaoNatural(): Promise<NaturalConversationModeValue> {
   const { data, error } = await supabase
@@ -186,7 +187,7 @@ export function useSaveSofiaConducaoNatural() {
 
   return useMutation({
     mutationFn: async (modo: SavableNaturalConversationMode) => {
-      if (modo !== "OFF" && modo !== "SHADOW") {
+      if (modo !== "OFF" && modo !== "SHADOW" && modo !== "ACTIVE") {
         throw new Error(`Valor não permitido para sofia_conducao_natural: ${String(modo)}`)
       }
       const { error } = await supabase.from("settings").upsert(
@@ -194,7 +195,7 @@ export function useSaveSofiaConducaoNatural() {
           chave: SOFIA_CONDUCAO_NATURAL_KEY,
           valor: { modo } as unknown as Json,
           descricao:
-            'Controla o modo da "condução natural" da Sofia (FEATURE-005): OFF = comportamento atual, sem nenhuma mudança visível; SHADOW = classifica e observa em segundo plano, sem exibir nada pra candidata; ACTIVE = ainda não implementado. Default OFF.',
+            'Controla o modo da "condução natural" da Sofia (FEATURE-005): OFF = comportamento atual, sem nenhuma mudança visível; SHADOW = classifica e observa em segundo plano, sem exibir nada pra candidata; ACTIVE = mostra reconhecimentos curtos e fixos (sem IA) antes de nome/cidade/idade/whatsapp/Instagram — perguntas abertas (profissão, objetivo etc.) continuam sem reação. Default OFF.',
         },
         { onConflict: "chave" },
       )
@@ -203,6 +204,51 @@ export function useSaveSofiaConducaoNatural() {
     },
     onSuccess: (modo) => {
       queryClient.setQueryData(["settings", SOFIA_CONDUCAO_NATURAL_KEY], modo)
+    },
+  })
+}
+
+const WHATSAPP_APROVACAO_AUTOMATICA_ATIVA_KEY = "whatsapp_aprovacao_automatica_ativa"
+
+async function fetchWhatsappAprovacaoAutomaticaAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", WHATSAPP_APROVACAO_AUTOMATICA_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useWhatsappAprovacaoAutomaticaAtiva() {
+  return useQuery({
+    queryKey: ["settings", WHATSAPP_APROVACAO_AUTOMATICA_ATIVA_KEY],
+    queryFn: fetchWhatsappAprovacaoAutomaticaAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveWhatsappAprovacaoAutomaticaAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: WHATSAPP_APROVACAO_AUTOMATICA_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            "Liga/desliga o envio automático da mensagem de aprovação via WhatsApp Cloud API (API oficial da Meta) assim que uma candidata é aprovada (pela IPR ou manualmente pela equipe). Default false — só liga depois do cadastro na Meta estar concluído e testado.",
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", WHATSAPP_APROVACAO_AUTOMATICA_ATIVA_KEY], ativa)
     },
   })
 }

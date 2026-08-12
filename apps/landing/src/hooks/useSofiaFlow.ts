@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { FinalizeCandidatePayload, FinalizeCandidateResponse } from "@tania-joias/shared"
 
 import { fetchSofiaConfig, fetchSofiaReacao, finalizeCandidate, insertAnswer } from "@/lib/api"
@@ -13,8 +13,17 @@ import {
 } from "@/data/sofia-script"
 import { AIGateway, SupabaseAIProvider, answerCandidateQuestion, createSofiaOrchestrator } from "@/orchestrator"
 import type { SofiaOrchestrator } from "@/orchestrator"
+import {
+  buildNonAnswerMessage,
+  classifyMessageForFeature004,
+  resolveExpectedValueTypeForKey,
+  resolveFieldKindForStep,
+} from "@/orchestrator/classifyForFeature004"
+import type { CandidateMessageKind } from "@/orchestrator/classifyCandidateMessage"
 import { resolveNaturalConversationMode, type EffectiveNaturalConversationMode } from "@/orchestrator/naturalConversation/resolveMode"
 import { observeShadowTurn } from "@/orchestrator/naturalConversation/shadowObserver"
+import { resolveReactionStrategy } from "@/orchestrator/naturalConversation/ReactionStrategyResolver"
+import { getDeterministicAcknowledgment } from "@/orchestrator/naturalConversation/DeterministicReactionProvider"
 import type { SofiaAnswerKey, SofiaAnswers, SofiaMessage, SofiaPhase } from "@/types/sofia"
 
 /**
@@ -29,6 +38,8 @@ const INTRO_LINE_DELAY_MS = 650
 const CLOSING_LINE_DELAY_MS = 700
 /** Timeout curto pro pipeline de perguntas (FEATURE-004) — mais apertado que o padrão do AIGateway (20s) pra nunca deixar a candidata esperando muito. */
 const CANDIDATE_QUESTION_TIMEOUT_MS = 6000
+/** Quanto tempo esperar parada, no meio da conversa, antes do nudge de reengajamento (só um por conversa). */
+const IDLE_NUDGE_DELAY_MS = 90_000
 
 function newId(): string {
   return crypto.randomUUID()
@@ -36,6 +47,11 @@ function newId(): string {
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Horário de exibição (HH:MM), estilo WhatsApp — só para a UI, não persistido. */
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
 }
 
 interface UseSofiaFlowParams {
@@ -73,6 +89,19 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   // Protege chamadas assíncronas concorrentes (StrictMode / cliques rápidos / retry).
   const runToken = useRef(0)
 
+  // Reengajamento por inatividade — dado real (Admin > Abandonos,
+  // 12/08/2026): quem interage às vezes some no meio, sem fechar o chat.
+  // Um único nudge por conversa (nunca mais de um — não é pra parecer
+  // insistente), só se a candidata ainda estiver esperando uma pergunta
+  // (fase "asking") quando o tempo estourar. `phaseRef` existe só pra ler o
+  // valor mais recente de dentro do `setTimeout` sem depender de closure.
+  const phaseRef = useRef<SofiaPhase>("intro")
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+  const idleNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idleNudgeShownRef = useRef(false)
+
   // RFC-002: o Orquestrador só OBSERVA a conversa por fora — nunca decide
   // nada, nunca pode alterar o que é perguntado ou como. Uma instância por
   // conversa (sem persistência entre sessões, ver `orchestrator/Memory.ts`).
@@ -96,15 +125,61 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   // "OFF" (idêntico ao comportamento de hoje) até a resposta chegar.
   const naturalConversationModeRef = useRef<EffectiveNaturalConversationMode>("OFF")
 
-  const pushBotLine = useCallback(async (text: string, delayMs: number) => {
-    setBotTyping(true)
-    await wait(delayMs)
-    setBotTyping(false)
-    setMessages((prev) => [...prev, { id: newId(), role: "bot", text }])
+  // FEATURE-005 — próxima etapa: liga só a parte DETERMINÍSTICA (sem IA,
+  // sem chamada de rede nova) da condução natural, reaproveitando os
+  // reconhecimentos curtos já escritos em `DeterministicReactionProvider`.
+  // Independente do ref acima (que só alimenta o shadow observer) — este
+  // aqui reflete o `modo` bruto vindo de `sofia-config`, `true` só quando
+  // `"ACTIVE"`. Os campos de estratégia `"AI"` (profissão, objetivo etc.)
+  // continuam sem reação nenhuma até essa parte ser construída.
+  const reconhecimentoDeterministicoAtivoRef = useRef(false)
+
+  // Reagenda o nudge de inatividade toda vez que a Sofia "fala" — reinicia a
+  // contagem enquanto a conversa avança normalmente. Não depende de
+  // `pushBotLine` de propósito (evita ciclo entre os dois `useCallback`);
+  // usa `setMessages` direto quando o tempo estoura.
+  const scheduleIdleNudge = useCallback(() => {
+    if (idleNudgeTimerRef.current) {
+      clearTimeout(idleNudgeTimerRef.current)
+      idleNudgeTimerRef.current = null
+    }
+    if (idleNudgeShownRef.current) return
+
+    idleNudgeTimerRef.current = setTimeout(() => {
+      idleNudgeTimerRef.current = null
+      if (idleNudgeShownRef.current || phaseRef.current !== "asking") return
+      idleNudgeShownRef.current = true
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          role: "bot",
+          text: "Ainda está por aí? 😊\n\nSem pressa — pode continuar quando quiser.",
+          time: formatTime(new Date()),
+        },
+      ])
+    }, IDLE_NUDGE_DELAY_MS)
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (idleNudgeTimerRef.current) clearTimeout(idleNudgeTimerRef.current)
+    }
+  }, [])
+
+  const pushBotLine = useCallback(
+    async (text: string, delayMs: number) => {
+      setBotTyping(true)
+      await wait(delayMs)
+      setBotTyping(false)
+      setMessages((prev) => [...prev, { id: newId(), role: "bot", text, time: formatTime(new Date()) }])
+      scheduleIdleNudge()
+    },
+    [scheduleIdleNudge],
+  )
+
   const pushUserMessage = useCallback((text: string) => {
-    setMessages((prev) => [...prev, { id: newId(), role: "user", text }])
+    setMessages((prev) => [...prev, { id: newId(), role: "user", text, time: formatTime(new Date()) }])
   }, [])
 
   const runSubmission = useCallback(
@@ -122,6 +197,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         trabalha: finalAnswers.trabalha ?? false,
         empresa_atual: finalAnswers.empresa_atual,
         profissao: finalAnswers.profissao,
+        estabilidade_profissional: finalAnswers.estabilidade_profissional,
         experiencia_vendas: finalAnswers.experiencia_vendas,
         instagram: finalAnswers.instagram ?? null,
         whatsapp: finalAnswers.whatsapp,
@@ -183,7 +259,30 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
           })
         }
 
-        const textoPergunta = mensagem ?? SOFIA_STEPS[next].question
+        // FEATURE-005 (parte determinística) — reconhecimento curto antes da
+        // próxima pergunta, só pros campos configurados como "DETERMINISTIC"
+        // em `fieldReactionConfig.ts` (nome/cidade/idade/whatsapp/Instagram),
+        // e só quando `sofia_conducao_natural` está "ACTIVE". Dado real
+        // (Admin > Abandonos, 12/08/2026): boa parte de quem interage some
+        // logo nas primeiras perguntas, antes de qualquer sinal de que a
+        // Sofia "ouviu" a resposta.
+        let reconhecimento: string | null = null
+        if (
+          reconhecimentoDeterministicoAtivoRef.current &&
+          resolveReactionStrategy(answeredKey) === "DETERMINISTIC"
+        ) {
+          if (answeredKey === "nome") {
+            const primeiroNome = String(updatedAnswers.nome ?? "").trim().split(/\s+/)[0]
+            reconhecimento = primeiroNome ? `Prazer, ${primeiroNome}! 🌸` : null
+          } else {
+            reconhecimento = getDeterministicAcknowledgment(answeredKey)
+          }
+        }
+
+        const textoPerguntaBase = mensagem ?? SOFIA_STEPS[next].question
+        const textoPergunta = reconhecimento
+          ? `${reconhecimento}\n\n${textoPerguntaBase}`
+          : textoPerguntaBase
         await pushBotLine(textoPergunta, 450)
         orchestratorRef.current?.processTurn(
           { type: "bot_message", texto: textoPergunta, origem: mensagem ? "ia" : "roteiro" },
@@ -194,9 +293,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
 
       if (updatedAnswers.trabalha === false) {
         setPhase("closing")
-        for (const line of SOFIA_REJECTION_LINES) {
-          await pushBotLine(line, CLOSING_LINE_DELAY_MS)
-        }
+        await pushBotLine(SOFIA_REJECTION_LINES.join("\n\n"), CLOSING_LINE_DELAY_MS)
         orchestratorRef.current?.processTurn(
           { type: "conversation_ended", status: "concluida" },
           { fase: "closing", answers: updatedAnswers },
@@ -285,6 +382,60 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     [answers, pushBotLine, sessionId],
   )
 
+  /**
+   * FEATURE-005 Parte 7, Objetivo 5 (revisado na Parte 7.1) —
+   * DOUBT/OBJECTION/SMALL_TALK/QUESTION(flag off)/AMBIGUOUS: nunca salva
+   * como resposta, nunca avança, só empurra uma mensagem estática curta
+   * (sem IA) e retoma a MESMA pergunta — mesmo padrão de "duas bolhas" do
+   * `handleCandidateQuestion`. `END_CONVERSATION` NÃO passa mais por aqui —
+   * tem fluxo próprio (`handleAbandonment`), ver Correção 1 da Parte 7.1.
+   */
+  const handleNonAnswerMessage = useCallback(
+    async (step: SofiaStep, kind: CandidateMessageKind) => {
+      const mensagem = buildNonAnswerMessage(step.key, kind)
+      if (mensagem) {
+        await pushBotLine(mensagem, 300)
+      }
+      await pushBotLine(step.question, 450)
+    },
+    [pushBotLine],
+  )
+
+  /**
+   * FEATURE-005 Parte 7.1, Correção 1 — encerramento antecipado de verdade.
+   * Diferente de `handleNonAnswerMessage`, NUNCA retoma a pergunta atual:
+   * mostra uma despedida curta, marca a fase como "abandoned" (terminal —
+   * esconde o input, ver `SofiaChatPanel.tsx`) e NUNCA chama
+   * `finalize-candidate`/`runSubmission` — não gera aprovação, reprovação
+   * nem análise final, porque a entrevista não foi concluída. O
+   * Orquestrador (shadow, RFC-002) só é avisado pra fins de
+   * observação/Simulator (`ConversationOutcome: "ABANDONED"`, já previsto
+   * em `orchestrator/types.ts` desde o RFC-008) — não decide nada aqui.
+   */
+  const handleAbandonment = useCallback(
+    async (finalAnswers: SofiaAnswers) => {
+      setBotTyping(true)
+      await wait(300)
+      setBotTyping(false)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          role: "bot",
+          // Texto exato pedido na Parte 7.1 (2ª rodada), Correção 1.
+          text: "Sem problemas.\n\nObrigada pelo seu tempo.\n\nSe mudar de ideia estaremos aqui para conversar novamente.",
+          time: formatTime(new Date()),
+        },
+      ])
+      setPhase("abandoned")
+      orchestratorRef.current?.processTurn(
+        { type: "conversation_ended", status: "abandonada" },
+        { fase: "abandoned", answers: finalAnswers },
+      )
+    },
+    [],
+  )
+
   const submitAnswer = useCallback(
     (step: SofiaStep, value: string | number | boolean, displayText: string) => {
       pushUserMessage(displayText)
@@ -297,7 +448,15 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         provisionalAnswers.instagram = null
       }
 
-      const action = orchestratorRef.current?.processTurn(
+      // RFC-002/RFC-010: mantido só pelas outras responsabilidades do
+      // Orchestrator shadow (WorkingMemory/Context/Plan, usadas pelo
+      // Simulator) — a partir da Parte 7 do FEATURE-005, quem decide se a
+      // FEATURE-004 intercepta a mensagem é `classifyMessageForFeature004`
+      // (`classifyCandidateMessageContextual`, Parte 2) logo abaixo, NÃO
+      // mais `action?.type` deste Orchestrator. `IntentClassifier.ts`
+      // continua rodando aqui só por compatibilidade com o pipeline shadow
+      // já existente (Simulator/cenários) — não decide mais nada visível.
+      orchestratorRef.current?.processTurn(
         { type: "user_answer", campo: step.key, valor: value },
         { fase: "asking", answers: provisionalAnswers },
       )
@@ -309,20 +468,37 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         answerValue: String(displayText),
       })
 
-      // FEATURE-004: com a flag desligada, `perguntasIaAtivaRef.current` é
-      // sempre `false` e este bloco nunca roda — comportamento idêntico ao
-      // de sempre. Com a flag ligada, uma pergunta detectada NUNCA é
-      // gravada como resposta nem avança a etapa — a Sofia responde e
-      // retoma a mesma pergunta.
-      const seraInterceptadaPelaFeature004 =
-        perguntasIaAtivaRef.current && action?.type === "ANSWER_WITH_TOOL" && typeof value === "string"
-
-      // FEATURE-005 Parte 4: observação SHADOW (mode "OFF" por padrão — ver
-      // `shadowObserver.ts`). Só roda em campos de texto livre (nunca em
-      // "trabalha", que continua 100% hardcoded). Nunca lança, nunca exibe
-      // nada, nunca altera `action`/o fluxo abaixo — só observa o que JÁ foi
-      // decidido por `action`/`seraInterceptadaPelaFeature004`.
+      // FEATURE-005 Parte 7 (revisado na Parte 7.1, Correção 2): campos de
+      // texto livre (nunca "trabalha", que continua 100% hardcoded, nem os
+      // demais campos de botão — já excluídos porque só chegam aqui como
+      // boolean, nunca string) passam pelo classificador contextual ANTES
+      // de decidir se o texto pode preencher o campo atual.
       if (typeof value === "string" && step.key !== "trabalha") {
+        const classification = classifyMessageForFeature004({
+          message: value,
+          currentFieldKey: step.key,
+          currentQuestion: step.question,
+          fieldKind: resolveFieldKindForStep(step),
+          expectedValueType: resolveExpectedValueTypeForKey(step.key),
+        })
+
+        const podePreencherComoResposta = classification.kind === "ANSWER" && classification.canFillCurrentField
+
+        // Camada de INTEGRIDADE (Parte 7.1, Correção 2) — protege os campos
+        // SEMPRE, independente de `perguntasIaAtivaRef`. Isso é diferente do
+        // resto da FEATURE-004: a flag nunca decidiu se um campo é
+        // protegido, só decide (mais abaixo) se uma QUESTION é respondida
+        // pela IA ou por um fallback determinístico. Ou seja: com a flag
+        // desligada, texto que não pode preencher o campo continua NUNCA
+        // sendo gravado nem avançando a etapa — isso NÃO é mais "flag off =
+        // zero mudança de comportamento" (era assim até a Parte 7); a partir
+        // daqui, flag off só desliga a resposta via IA, nunca a proteção.
+        const seraInterceptada = !podePreencherComoResposta
+
+        // FEATURE-005 Parte 4/5: observação SHADOW continua rodando em
+        // paralelo, sem decidir nada — reaproveita a MESMA classificação já
+        // calculada acima (Objetivo 1 da Parte 7: nunca duas classificações
+        // paralelas pra decidir a mesma coisa).
         const proximoIndice = findNextStepIndex(stepIndex + 1, provisionalAnswers)
         observeShadowTurn({
           mode: naturalConversationModeRef.current,
@@ -331,20 +507,42 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
           currentQuestion: step.question,
           nextQuestion: proximoIndice < SOFIA_STEPS.length ? SOFIA_STEPS[proximoIndice].question : undefined,
           candidateAnswer: value,
-          currentFlowAcceptedAnswer: !seraInterceptadaPelaFeature004,
+          currentFlowAcceptedAnswer: !seraInterceptada,
           knownContext: provisionalAnswers as Record<string, unknown>,
         })
-      }
 
-      if (seraInterceptadaPelaFeature004) {
-        void handleCandidateQuestion(step, value)
-        return
+        if (seraInterceptada) {
+          // Correção 1 — encerramento antecipado nunca retoma a pergunta.
+          if (classification.kind === "END_CONVERSATION") {
+            void handleAbandonment(provisionalAnswers)
+            return
+          }
+          // Correção 2 — só QUESTION depende da flag: ligada, responde de
+          // verdade via FEATURE-004/IA; desligada, usa a mensagem estática
+          // de `buildNonAnswerMessage("QUESTION")` (nunca grava a pergunta
+          // como resposta, nunca chama IA).
+          if (classification.kind === "QUESTION" && perguntasIaAtivaRef.current) {
+            void handleCandidateQuestion(step, value)
+          } else {
+            void handleNonAnswerMessage(step, classification.kind)
+          }
+          return
+        }
       }
 
       setAnswers(provisionalAnswers)
       void advanceAfterAnswer(provisionalAnswers, stepIndex + 1, step.key)
     },
-    [answers, pushUserMessage, sessionId, stepIndex, advanceAfterAnswer, handleCandidateQuestion],
+    [
+      answers,
+      pushUserMessage,
+      sessionId,
+      stepIndex,
+      advanceAfterAnswer,
+      handleCandidateQuestion,
+      handleNonAnswerMessage,
+      handleAbandonment,
+    ],
   )
 
   const beginIntro = useCallback(() => {
@@ -356,6 +554,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
 
       const resolved = resolveNaturalConversationMode(conducaoNaturalModo)
       naturalConversationModeRef.current = resolved.effectiveMode
+      reconhecimentoDeterministicoAtivoRef.current = conducaoNaturalModo === "ACTIVE"
       // Objetivo 9 (Parte 5): log só em dev, sem nenhum dado da candidata —
       // só o modo carregado e a origem (distingue "ACTIVE tratado como
       // SHADOW" de um SHADOW real, por exemplo).
@@ -370,9 +569,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     orchestratorRef.current?.processTurn({ type: "intro_started" }, { fase: "intro", answers: {} })
 
     void (async () => {
-      for (const line of SOFIA_INTRO_LINES) {
-        await pushBotLine(line, INTRO_LINE_DELAY_MS)
-      }
+      await pushBotLine(SOFIA_INTRO_LINES.join("\n\n"), INTRO_LINE_DELAY_MS)
       const first = findNextStepIndex(0, {})
       setStepIndex(first)
       setPhase("asking")

@@ -4,6 +4,7 @@ export type LeadStatus = Enums<"lead_status">
 export type PerfilComercial = Enums<"perfil_comercial_enum">
 export type Recomendacao = Enums<"recomendacao_enum">
 export type EventoFunil = Enums<"evento_funil">
+export type EtapaPosAprovacao = Enums<"etapa_pos_aprovacao_enum">
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   novo: "Novo Lead",
@@ -17,6 +18,25 @@ export const LEAD_STATUS_COLOR: Record<LeadStatus, string> = {
   em_analise: "#C6A664",
   aprovada: "#1F8A4C",
   reprovada: "#B3261E",
+}
+
+// Etapas do funil DEPOIS de uma lead ser aprovada (Kanban do Admin). Só têm
+// sentido quando `status = 'aprovada'` — nunca participam de
+// calcularIpr/decidirStatus/classificarPerfil nem do evento Meta Lead (ver
+// supabase/functions/finalize-candidate/index.ts). Controle manual da
+// equipe, adicional ao `status` que já existia.
+export const ETAPA_POS_APROVACAO_LABEL: Record<EtapaPosAprovacao, string> = {
+  contatada: "Contatada",
+  confirmada: "Confirmada",
+  ativa: "Ativa",
+  desistiu: "Desistiu",
+}
+
+export const ETAPA_POS_APROVACAO_COLOR: Record<EtapaPosAprovacao, string> = {
+  contatada: "#97C459",
+  confirmada: "#639922",
+  ativa: "#3B6D11",
+  desistiu: "#D85A30",
 }
 
 export const PERFIL_COMERCIAL_LABEL: Record<PerfilComercial, string> = {
@@ -79,12 +99,68 @@ export const MOTIVACAO_PRINCIPAL_LABEL: Record<MotivacaoPrincipal, string> = {
   outro: "Outro",
 }
 
-export const KANBAN_COLUMNS: { status: LeadStatus; label: string }[] = [
-  { status: "novo", label: "Novo Lead" },
-  { status: "em_analise", label: "Em Análise" },
-  { status: "aprovada", label: "Aprovada" },
-  { status: "reprovada", label: "Reprovada" },
+// Kanban do Admin — pipeline único que vai de "Novo Lead" até "Ativa",
+// combinando as 4 colunas originais (ligadas a `lead_status`) com as 4 novas
+// etapas pós-aprovação (ligadas a `etapa_pos_aprovacao`). `key` é usado como
+// id da coluna pro drag-and-drop; `pipelineColumnKeyForLead`/
+// `patchForPipelineColumn` fazem a ponte entre esse id e os dois campos
+// reais do banco.
+export type PipelineColumnKey =
+  | "novo"
+  | "em_analise"
+  | "aprovada"
+  | "contatada"
+  | "confirmada"
+  | "ativa"
+  | "desistiu"
+  | "reprovada"
+
+export interface PipelineColumn {
+  key: PipelineColumnKey
+  label: string
+  color: string
+}
+
+export const PIPELINE_COLUMNS: PipelineColumn[] = [
+  { key: "novo", label: LEAD_STATUS_LABEL.novo, color: LEAD_STATUS_COLOR.novo },
+  { key: "em_analise", label: LEAD_STATUS_LABEL.em_analise, color: LEAD_STATUS_COLOR.em_analise },
+  { key: "aprovada", label: LEAD_STATUS_LABEL.aprovada, color: LEAD_STATUS_COLOR.aprovada },
+  { key: "contatada", label: ETAPA_POS_APROVACAO_LABEL.contatada, color: ETAPA_POS_APROVACAO_COLOR.contatada },
+  { key: "confirmada", label: ETAPA_POS_APROVACAO_LABEL.confirmada, color: ETAPA_POS_APROVACAO_COLOR.confirmada },
+  { key: "ativa", label: ETAPA_POS_APROVACAO_LABEL.ativa, color: ETAPA_POS_APROVACAO_COLOR.ativa },
+  { key: "desistiu", label: ETAPA_POS_APROVACAO_LABEL.desistiu, color: ETAPA_POS_APROVACAO_COLOR.desistiu },
+  { key: "reprovada", label: LEAD_STATUS_LABEL.reprovada, color: LEAD_STATUS_COLOR.reprovada },
 ]
+
+interface LeadForPipeline {
+  status: LeadStatus
+  etapa_pos_aprovacao: EtapaPosAprovacao | null
+}
+
+/** Em qual coluna do Kanban uma lead cai, combinando `status` + `etapa_pos_aprovacao`. */
+export function pipelineColumnKeyForLead(lead: LeadForPipeline): PipelineColumnKey {
+  if (lead.status === "aprovada") {
+    return lead.etapa_pos_aprovacao ?? "aprovada"
+  }
+  return lead.status
+}
+
+/** O que gravar no banco quando uma lead é arrastada para a coluna `key`. */
+export function patchForPipelineColumn(
+  key: PipelineColumnKey,
+): { status: LeadStatus; etapa_pos_aprovacao: EtapaPosAprovacao | null } {
+  switch (key) {
+    case "contatada":
+    case "confirmada":
+    case "ativa":
+    case "desistiu":
+      return { status: "aprovada", etapa_pos_aprovacao: key }
+    case "aprovada":
+      return { status: "aprovada", etapa_pos_aprovacao: null }
+    default:
+      return { status: key, etapa_pos_aprovacao: null }
+  }
+}
 
 export const RADAR_FUNIL_STEPS: { evento: EventoFunil; label: string }[] = [
   { evento: "ad_click", label: "Clicaram no anúncio" },

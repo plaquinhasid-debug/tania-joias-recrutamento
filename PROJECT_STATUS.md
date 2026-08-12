@@ -87,7 +87,7 @@ Essa árvore vive em `apps/landing/src/orchestrator/`; as partes ainda-shadow s�
 | Admin | Vite 8 + React 19 + TypeScript, TanStack Query/Table, React Router, dnd-kit, Recharts |
 | Shared | `packages/shared` — tipos gerados do Supabase, schemas Zod, constantes |
 | Backend | Supabase (Postgres 17, projeto `tania-joias-crm`, ref `iaqzbernshmhkqznleye`, região `sa-east-1`) |
-| Edge Functions | Deno, 6 funções ativas: `finalize-candidate`, `sofia-reagir`, `send-meta-lead-event`, `daily-leads-report`, `agent-ai-gateway`, `sofia-config` (as duas últimas, FEATURE-004, atrás da flag `sofia_perguntas_ia_ativa` — hoje ligada) |
+| Edge Functions | Deno, funções ativas incluem: `finalize-candidate`, `sofia-reagir`, `send-meta-lead-event`, `daily-leads-report`, `agent-ai-gateway`, `sofia-config` (as duas últimas, FEATURE-004, atrás da flag `sofia_perguntas_ia_ativa` — hoje ligada), `send-whatsapp-approval` (nova, ver seção 7, atrás da flag `whatsapp_aprovacao_automatica_ativa` — hoje desligada) |
 | IA | Anthropic Claude (`claude-haiku-4-5-20251001`), sempre via tool-use forçado, sempre server-side |
 | Hospedagem | Vercel — 2 projetos separados (`tania-joias-landing`, `tania-joias-recrutamento`) |
 | E-mail | Resend (relatório diário via pg_cron) |
@@ -110,9 +110,16 @@ Construída em 5 partes incrementais (cada uma com testes próprios rodados ante
 - **O que falta pra isso valer pra candidatas de verdade**: aplicar a migration, publicar a `sofia-config` nova, publicar Admin e Landing, e só então ligar `SHADOW` (nunca `ACTIVE`, que não tem comportamento implementado) — nenhum desses passos foi feito ainda.
 - 62 testes automatizados (rodados via browser, sem test runner instalado) cobrindo as 5 partes + 6 cenários do Simulator, todos passando.
 
-## 7. Ideias desenhadas em detalhe mas NÃO implementadas (prontas pra retomar)
+## 7. WhatsApp automático na aprovação — código pronto e no ar, ATRÁS de flag desligada (aguardando cadastro dela na Meta)
 
-**WhatsApp automático na aprovação (rejeitado por complexidade, não é mais prioridade).** Ideia: assim que uma candidata é aprovada, mandar um WhatsApp automático de verdade (hoje é 100% manual — recrutador clica um botão que só abre um rascunho no `wa.me`, um humano ainda precisa clicar "enviar"). Desenho técnico ficou pronto (nova Edge Function `send-whatsapp-approval` espelhando `send-meta-lead-event`, nova coluna `leads.whatsapp_automatico_enviado_em`, nova flag), usando a API oficial da Meta (WhatsApp Cloud API). Ela gostou da ideia mas, ao ver que precisava de verificação de empresa no Meta Business Manager + aprovação de modelo de mensagem, achou complicado demais e decidiu deixar de lado por enquanto. Se retomar, considerar começar por algo mais simples (ex.: só um campo "contatada" no Admin, sem integração nenhuma; ou destacar no relatório diário por e-mail — já existente via Resend — quais aprovadas ainda não têm contato registrado).
+Assim que uma candidata é aprovada (pela IPR na hora, ou manualmente pela equipe depois), o sistema tenta mandar automaticamente uma mensagem de aprovação via **WhatsApp Cloud API** (API oficial da Meta), pelo mesmo número que a equipe já usa. O botão manual "Enviar WhatsApp" (`LeadDetailDrawer.tsx`) continua existindo do jeito que é hoje — a automática só adianta o primeiro contato, não substitui.
+
+- **Migration aplicada**: `leads.whatsapp_automatico_enviado_em timestamptz null` (idempotência, espelha `meta_lead_sent_at`) + `settings.whatsapp_aprovacao_automatica_ativa = {ativa: false}` (flag mestre, default OFF).
+- **`supabase/functions/_shared/whatsapp-cloud-api.ts`** (novo): `normalizeBrazilPhone()` + `sendWhatsappApprovalTemplate({token, phoneNumberId, templateName, telefone, nome})` — `POST` pro Graph API (`/messages`), template com 1 variável (primeiro nome). Lança em erro; quem chama trata como best-effort.
+- **`send-whatsapp-approval`** (Edge Function nova, deployada): recebe `{lead_id}`, checa flag ligada → lead aprovada → `whatsapp === true` → ainda não enviada (nessa ordem) → chama o helper → grava `whatsapp_automatico_enviado_em`. Testado isolado via `curl` com a flag desligada: `{"skipped":true,"reason":"flag_off"}`.
+- **Dois pontos de disparo**: `finalize-candidate` (aprovação automática pela IPR, inline, mesmo bloco do Meta Pixel) e `useLeadDetail.ts`/`useUpdateLead` (aprovação manual pela equipe, mesmo bloco que já chama `send-meta-lead-event`). Ambos fire-and-forget, nunca travam a resposta pra candidata nem a UI do Admin.
+- **Toggle no Admin** → Configurações → "WhatsApp — Mensagem automática na aprovação" (`useWhatsappAprovacaoAutomaticaAtiva`/`useSaveWhatsappAprovacaoAutomaticaAtiva`, mesmo padrão dos outros 3 toggles).
+- **O que falta pra funcionar de verdade**: ela precisa completar o cadastro na Meta (Business Manager + WhatsApp Cloud API + modelo de mensagem submetido e aprovado — ela já iniciou esse processo, aguardando aprovação do template pela Meta) e colar `WHATSAPP_CLOUD_API_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`/`WHATSAPP_APPROVAL_TEMPLATE_NAME` nos Secrets do Supabase Studio. Sem essas credenciais configuradas, o envio falha silenciosamente (`whatsapp_credentials_not_configured`, best-effort) mesmo com a flag ligada. **Nunca testado com credenciais reais/número real ainda.**
 
 ## 8. Como as mudanças são publicadas (fluxo manual, sem CI/CD automático)
 

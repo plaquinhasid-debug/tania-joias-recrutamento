@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { CheckCircle2, Clock, HeartHandshake } from "lucide-react"
+import { CheckCircle2, Clock, HeartHandshake, Instagram } from "lucide-react"
 import type { FinalizeCandidateResponse } from "@tania-joias/shared"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,8 @@ import {
   SOFIA_REJECTION_LINES,
   SOFIA_REPROVADA_FINAL_LINES,
 } from "@/data/sofia-script"
+
+const INSTAGRAM_URL = "https://www.instagram.com/taniajoias_/"
 
 interface ResultScreenProps {
   result: FinalizeCandidateResponse
@@ -46,7 +48,15 @@ export function ResultScreen({ result, trabalha, onClose }: ResultScreenProps) {
       {!revealed ? (
         <div className="flex flex-col items-center gap-3">
           <p className="text-sm text-muted-foreground">Calculando seu potencial...</p>
-          <IprCounter target={result.ipr} onDone={() => setRevealed(true)} />
+          <IprCounter
+            target={result.ipr}
+            onDone={() => {
+              // Pequena pausa depois do número final antes de trocar de
+              // tela — sem isso, o resultado aparecia no exato instante em
+              // que a contagem terminava, rápido demais pra registrar.
+              setTimeout(() => setRevealed(true), 700)
+            }}
+          />
         </div>
       ) : (
         <motion.div
@@ -66,9 +76,17 @@ export function ResultScreen({ result, trabalha, onClose }: ResultScreenProps) {
               </p>
             ))}
           </div>
-          <Button variant="gold" size="lg" onClick={onClose} className="mt-2">
-            Concluir
-          </Button>
+          <div className="mt-2 flex w-full max-w-xs flex-col gap-2">
+            <Button variant="gold" size="lg" asChild>
+              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">
+                <Instagram className="size-4" />
+                Ver nosso Instagram
+              </a>
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              Fechar
+            </Button>
+          </div>
         </motion.div>
       )}
     </div>

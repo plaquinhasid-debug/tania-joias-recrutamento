@@ -10,55 +10,61 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core"
 import { toast } from "sonner"
-import { KANBAN_COLUMNS, type LeadStatus } from "@tania-joias/shared"
+import {
+  PIPELINE_COLUMNS,
+  patchForPipelineColumn,
+  pipelineColumnKeyForLead,
+  type PipelineColumnKey,
+} from "@tania-joias/shared"
 
 import { KanbanColumn } from "@/components/crm/KanbanColumn"
 import { KanbanCard } from "@/components/crm/KanbanCard"
 import { useUpdateLead } from "@/hooks/useLeadDetail"
+import type { LeadWithAnalysis } from "@/hooks/useLeads"
 import type { Lead } from "@/types"
 
-type GroupedLeads = Record<LeadStatus, Lead[]>
+type GroupedLeads = Record<PipelineColumnKey, LeadWithAnalysis[]>
 
-function groupByStatus(leads: Lead[]): GroupedLeads {
+function groupByColumn(leads: LeadWithAnalysis[]): GroupedLeads {
   const grouped = Object.fromEntries(
-    KANBAN_COLUMNS.map((col) => [col.status, [] as Lead[]]),
+    PIPELINE_COLUMNS.map((col) => [col.key, [] as LeadWithAnalysis[]]),
   ) as GroupedLeads
   for (const lead of leads) {
-    grouped[lead.status]?.push(lead)
+    grouped[pipelineColumnKeyForLead(lead)]?.push(lead)
   }
   return grouped
 }
 
 interface KanbanBoardProps {
-  leads: Lead[]
+  leads: LeadWithAnalysis[]
   onSelectLead: (lead: Lead) => void
 }
 
 export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
-  const [grouped, setGrouped] = React.useState<GroupedLeads>(() => groupByStatus(leads))
-  const [activeLead, setActiveLead] = React.useState<Lead | null>(null)
+  const [grouped, setGrouped] = React.useState<GroupedLeads>(() => groupByColumn(leads))
+  const [activeLead, setActiveLead] = React.useState<LeadWithAnalysis | null>(null)
   const updateLead = useUpdateLead()
 
   React.useEffect(() => {
-    setGrouped(groupByStatus(leads))
+    setGrouped(groupByColumn(leads))
   }, [leads])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
-  function findColumnOf(leadId: string): LeadStatus | null {
-    for (const col of KANBAN_COLUMNS) {
-      if (grouped[col.status].some((lead) => lead.id === leadId)) return col.status
+  function findColumnOf(leadId: string): PipelineColumnKey | null {
+    for (const col of PIPELINE_COLUMNS) {
+      if (grouped[col.key].some((lead) => lead.id === leadId)) return col.key
     }
     return null
   }
 
   function handleDragStart(event: DragStartEvent) {
     const leadId = String(event.active.id)
-    const status = findColumnOf(leadId)
-    if (!status) return
-    setActiveLead(grouped[status].find((lead) => lead.id === leadId) ?? null)
+    const columnKey = findColumnOf(leadId)
+    if (!columnKey) return
+    setActiveLead(grouped[columnKey].find((lead) => lead.id === leadId) ?? null)
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -67,29 +73,31 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     if (!over) return
 
     const leadId = String(active.id)
-    const sourceStatus = findColumnOf(leadId)
-    if (!sourceStatus) return
+    const sourceKey = findColumnOf(leadId)
+    if (!sourceKey) return
 
     const overId = String(over.id)
-    const isColumn = KANBAN_COLUMNS.some((col) => col.status === overId)
-    const targetStatus = (isColumn ? overId : findColumnOf(overId)) as LeadStatus | null
-    if (!targetStatus || targetStatus === sourceStatus) return
+    const isColumn = PIPELINE_COLUMNS.some((col) => col.key === overId)
+    const targetKey = (isColumn ? overId : findColumnOf(overId)) as PipelineColumnKey | null
+    if (!targetKey || targetKey === sourceKey) return
 
-    const lead = grouped[sourceStatus].find((l) => l.id === leadId)
+    const lead = grouped[sourceKey].find((l) => l.id === leadId)
     if (!lead) return
+
+    const patch = patchForPipelineColumn(targetKey)
 
     setGrouped((prev) => ({
       ...prev,
-      [sourceStatus]: prev[sourceStatus].filter((l) => l.id !== leadId),
-      [targetStatus]: [{ ...lead, status: targetStatus }, ...prev[targetStatus]],
+      [sourceKey]: prev[sourceKey].filter((l) => l.id !== leadId),
+      [targetKey]: [{ ...lead, ...patch }, ...prev[targetKey]],
     }))
 
     updateLead.mutate(
-      { id: leadId, patch: { status: targetStatus } },
+      { id: leadId, patch },
       {
         onError: () => {
           toast.error("Não foi possível mover o lead. Tente novamente.")
-          setGrouped(groupByStatus(leads))
+          setGrouped(groupByColumn(leads))
         },
       },
     )
@@ -103,12 +111,13 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {KANBAN_COLUMNS.map((col) => (
+        {PIPELINE_COLUMNS.map((col) => (
           <KanbanColumn
-            key={col.status}
-            status={col.status}
+            key={col.key}
+            columnKey={col.key}
             label={col.label}
-            leads={grouped[col.status]}
+            color={col.color}
+            leads={grouped[col.key]}
             onSelectLead={onSelectLead}
           />
         ))}

@@ -1,6 +1,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 import { CheckCircle2, Loader2, MessageCircle, XCircle } from "lucide-react"
+import { ETAPA_POS_APROVACAO_LABEL } from "@tania-joias/shared"
 
 import {
   Sheet,
@@ -35,6 +36,14 @@ interface LeadDetailDrawerProps {
   onOpenChange: (open: boolean) => void
 }
 
+// QUALIFICACAO-002, Parte 1 — apresentação simples e neutra (nunca "boa/má
+// candidata", "risco alto/baixo" etc.), só a regularidade autodeclarada.
+const ESTABILIDADE_PROFISSIONAL_LABEL: Record<string, string> = {
+  ALTA: "Alta",
+  MEDIA: "Média",
+  BAIXA: "Baixa",
+}
+
 export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps) {
   const open = Boolean(leadId)
   const { data: lead, isLoading: leadLoading } = useLead(leadId ?? undefined)
@@ -49,8 +58,12 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
     setObservacoes(lead?.observacoes ?? "")
   }, [lead?.id, lead?.observacoes])
 
+  // Personaliza o rascunho com o resumo comercial que a Sofia já escreveu
+  // pra essa candidata (cai no resumo determinístico se a análise expandida
+  // não estiver disponível) — a equipe deixa de digitar do zero.
+  const resumoParaMensagem = analysis?.resumo_comercial || lead?.resumo_ia || ""
   const defaultMessage = lead
-    ? `Olá ${lead.nome?.split(" ")[0]}! 🌸\n\nBacana! Você passou pela primeira fase.\n\nNossa equipe entrará em contato em breve com os próximos passos.\n\nQualquer dúvida, estamos por aqui!\n\nAbraços,\nEquipe Tania Joias`
+    ? `Olá ${lead.nome?.split(" ")[0]}! 🌸\n\nBacana! Você passou pela primeira fase.${resumoParaMensagem ? `\n\n${resumoParaMensagem}` : ""}\n\nNossa equipe entrará em contato em breve com os próximos passos.\n\nQualquer dúvida, estamos por aqui!\n\nAbraços,\nEquipe Tania Joias`
     : ""
 
   const waLink = lead ? whatsappLink(lead.telefone) : null
@@ -151,6 +164,34 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
                   />
                 )}
               </section>
+
+              <Separator />
+
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
+                  Estabilidade profissional
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {ESTABILIDADE_PROFISSIONAL_LABEL[lead.estabilidade_profissional ?? ""] ??
+                    "Não informada"}
+                </p>
+              </section>
+
+              {lead.status === "aprovada" && (
+                <>
+                  <Separator />
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold text-foreground">
+                      Etapa pós-aprovação
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {lead.etapa_pos_aprovacao
+                        ? ETAPA_POS_APROVACAO_LABEL[lead.etapa_pos_aprovacao]
+                        : "Aprovada — ainda não avançou (mova no Kanban)"}
+                    </p>
+                  </section>
+                </>
+              )}
 
               <Separator />
 

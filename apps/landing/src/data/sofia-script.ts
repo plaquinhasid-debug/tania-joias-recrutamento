@@ -9,12 +9,15 @@ import { identificacaoSchema, qualificacaoSchema } from "@tania-joias/shared"
 
 import type { SofiaAnswerKey, SofiaAnswers } from "@/types/sofia"
 
+// Reforça logo de cara que é rápido e sem compromisso — dado real (Admin >
+// Abandonos, 12/08/2026): ~78% de quem abandona a conversa sai antes de
+// responder a primeira pergunta, sem digitar nada. Objetivo é reduzir essa
+// hesitação inicial.
 export const SOFIA_INTRO_LINES = [
   "Olá 🌸",
-  "Sou a Sofia.",
-  "Assistente virtual da Tania Joias.",
-  "Vou conhecer um pouco sobre você.",
-  "Leva menos de dois minutos.",
+  "Sou a Sofia, assistente virtual da Tania Joias.",
+  "Vou te fazer só algumas perguntas rápidas pra ver se você já pode começar a vender com a gente — sem compromisso.",
+  "Leva menos de 2 minutos.",
 ] as const
 
 // Texto oficial e imutável da regra "Você trabalha atualmente?" — nunca deve
@@ -134,6 +137,21 @@ export const SOFIA_STEPS: SofiaStep[] = [
     question: "Onde você trabalha?",
     placeholder: "Nome da empresa",
     schema: qualificacaoSchema.shape.empresa_atual,
+    skip: trabalhaFalso,
+  },
+  {
+    // QUALIFICACAO-002, Parte 1 — coleta estruturada de "estabilidade
+    // profissional" (regularidade da atividade AUTODECLARADA, não é medida
+    // de risco/garantia). Mesmo padrão de `tempo_disponivel`: chips com
+    // fallback de texto livre. A normalização do texto do chip pra
+    // ALTA/MEDIA/BAIXA acontece só em `finalize-candidate` — este passo
+    // NUNCA participa de calcularIpr/decidirStatus/classificarPerfil.
+    key: "estabilidade_profissional",
+    kind: "chips",
+    question: "Sua rotina de trabalho hoje é mais fixa, ou mais variável?",
+    chips: ["Fixa — mesma empresa/local, mesma escala", "Variável, mas recorrente", "Esporádica, sem muita regularidade"],
+    placeholder: "Ou descreva com suas palavras",
+    schema: qualificacaoSchema.shape.estabilidade_profissional,
     skip: trabalhaFalso,
   },
   {

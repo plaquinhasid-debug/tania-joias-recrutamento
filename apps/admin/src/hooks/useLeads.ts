@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import type { ProximaAcao } from "@tania-joias/shared"
 
 import { supabase } from "@/lib/supabase"
 import type { Lead, LeadFiltersState } from "@/types"
@@ -13,8 +14,22 @@ export const DEFAULT_LEAD_FILTERS: LeadFiltersState = {
   dateTo: null,
 }
 
-async function fetchLeads(filters: LeadFiltersState): Promise<Lead[]> {
-  let query = supabase.from("leads").select("*").order("created_at", { ascending: false })
+/** Lead com o histórico de análises embutido — só o suficiente pra achar a mais recente. */
+export type LeadWithAnalysis = Lead & {
+  ai_analysis: { proxima_acao: string | null; created_at: string }[]
+}
+
+/** Uma lead pode ter mais de uma `ai_analysis` (reprocessamento) — a mais recente é a que vale. */
+export function latestProximaAcao(lead: LeadWithAnalysis): ProximaAcao | null {
+  const latest = [...lead.ai_analysis].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+  return (latest?.proxima_acao as ProximaAcao | undefined) ?? null
+}
+
+async function fetchLeads(filters: LeadFiltersState): Promise<LeadWithAnalysis[]> {
+  let query = supabase
+    .from("leads")
+    .select("*, ai_analysis(proxima_acao, created_at)")
+    .order("created_at", { ascending: false })
 
   if (filters.status !== "todos") {
     query = query.eq("status", filters.status as Lead["status"])

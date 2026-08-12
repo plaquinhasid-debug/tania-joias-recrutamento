@@ -17,7 +17,7 @@ export function ChatTranscript({ messages, botTyping }: ChatTranscriptProps) {
   }, [messages, botTyping])
 
   return (
-    <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+    <div className="wa-wallpaper flex-1 space-y-2 overflow-y-auto px-4 py-4 sm:px-6">
       {messages.map((message) => (
         <ChatBubble key={message.id} message={message} />
       ))}

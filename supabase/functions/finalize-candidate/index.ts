@@ -14,6 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
+import { sendWhatsappApprovalTemplate } from "../_shared/whatsapp-cloud-api.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
 
 // Profissões que costumam indicar bom encaixe como revendedora (círculo
@@ -36,6 +37,7 @@ type Payload = {
   trabalha: boolean
   empresa_atual?: string
   profissao?: string
+  estabilidade_profissional?: string
   experiencia_vendas?: boolean
   instagram?: string | null
   whatsapp?: boolean
@@ -65,6 +67,8 @@ type IprThresholds = { aprovar: number; analise_min: number }
 type CidadesAtendidas = { restringir: boolean; lista: string[] }
 
 type SofiaIaAtiva = { ativa: boolean }
+
+type WhatsappAprovacaoAutomaticaAtiva = { ativa: boolean }
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -126,6 +130,28 @@ function classificarPerfil(trabalha: boolean, ipr: number, thresholds: IprThresh
   }
 }
 
+// QUALIFICACAO-002, Parte 1 — normaliza o texto bruto do chip escolhido pra
+// uma das 3 categorias controladas. Match exato (após trim), incluindo o
+// fallback de texto livre do ChipsAnswerInput: se a candidata digitar algo
+// que não bate com nenhuma das 3 opções, ou o campo não vier, o resultado é
+// `null` — não inventamos classificação, nem aqui nem em leads antigos.
+// PROIBIDO participar de calcularIpr/decidirStatus/classificarPerfil (ver
+// QUALIFICACAO-002-estabilidade-trabalho.md).
+type EstabilidadeProfissional = "ALTA" | "MEDIA" | "BAIXA"
+
+function mapEstabilidadeProfissional(raw: string | undefined): EstabilidadeProfissional | null {
+  switch (raw?.trim()) {
+    case "Fixa — mesma empresa/local, mesma escala":
+      return "ALTA"
+    case "Variável, mas recorrente":
+      return "MEDIA"
+    case "Esporádica, sem muita regularidade":
+      return "BAIXA"
+    default:
+      return null
+  }
+}
+
 function gerarResumo(payload: Payload, perfil: "baixo" | "medio" | "alto" | null) {
   const primeiroNome = payload.nome.split(" ")[0]
   if (!payload.trabalha) {
@@ -175,7 +201,13 @@ Deno.serve(async (req) => {
   const { data: settingsRows, error: settingsError } = await supabase
     .from("settings")
     .select("chave, valor")
-    .in("chave", ["ipr_pesos", "ipr_thresholds", "cidades_atendidas", "sofia_ia_ativa"])
+    .in("chave", [
+      "ipr_pesos",
+      "ipr_thresholds",
+      "cidades_atendidas",
+      "sofia_ia_ativa",
+      "whatsapp_aprovacao_automatica_ativa",
+    ])
 
   if (settingsError) {
     return jsonResponse({ error: "settings_fetch_failed", detail: settingsError.message }, 500)
@@ -186,6 +218,10 @@ Deno.serve(async (req) => {
   const thresholds = settingsMap.ipr_thresholds as IprThresholds
   const cidadesConfig = settingsMap.cidades_atendidas as CidadesAtendidas
   const sofiaIaAtiva = Boolean((settingsMap.sofia_ia_ativa as SofiaIaAtiva | undefined)?.ativa)
+  const whatsappAprovacaoAutomaticaAtiva = Boolean(
+    (settingsMap.whatsapp_aprovacao_automatica_ativa as WhatsappAprovacaoAutomaticaAtiva | undefined)
+      ?.ativa,
+  )
 
   const cidadeAtendida = isCidadeAtendida(payload.cidade, cidadesConfig)
   const { total: ipr, breakdown } = calcularIpr(payload, pesos, cidadeAtendida)
@@ -245,6 +281,10 @@ Deno.serve(async (req) => {
       trabalha: payload.trabalha,
       empresa_atual: payload.empresa_atual ?? null,
       profissao: payload.profissao ?? null,
+      // QUALIFICACAO-002, Parte 1 — só persistência estruturada. Nunca
+      // entra em `calcularIpr`/`decidirStatus`/`classificarPerfil` acima
+      // (calculados antes desta linha, sem nenhuma referência a este campo).
+      estabilidade_profissional: mapEstabilidadeProfissional(payload.estabilidade_profissional),
       experiencia_vendas: payload.experiencia_vendas ?? null,
       instagram: payload.instagram ?? null,
       whatsapp: payload.whatsapp ?? null,
@@ -349,6 +389,29 @@ Deno.serve(async (req) => {
           .eq("id", lead.id)
       } catch (err) {
         console.error("[finalize-candidate] falha ao enviar evento Lead ao Meta", err)
+      }
+    }
+
+    if (whatsappAprovacaoAutomaticaAtiva && payload.whatsapp === true) {
+      const token = Deno.env.get("WHATSAPP_CLOUD_API_TOKEN")
+      const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+      const templateName = Deno.env.get("WHATSAPP_APPROVAL_TEMPLATE_NAME")
+      if (token && phoneNumberId && templateName) {
+        try {
+          await sendWhatsappApprovalTemplate({
+            token,
+            phoneNumberId,
+            templateName,
+            telefone: payload.telefone,
+            nome: payload.nome,
+          })
+          await supabase
+            .from("leads")
+            .update({ whatsapp_automatico_enviado_em: new Date().toISOString() })
+            .eq("id", lead.id)
+        } catch (err) {
+          console.error("[finalize-candidate] falha ao enviar WhatsApp de aprovação", err)
+        }
       }
     }
   }

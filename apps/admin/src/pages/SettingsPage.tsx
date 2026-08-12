@@ -22,6 +22,8 @@ import {
   useSofiaConducaoNatural,
   useSaveSofiaConducaoNatural,
   type SavableNaturalConversationMode,
+  useWhatsappAprovacaoAutomaticaAtiva,
+  useSaveWhatsappAprovacaoAutomaticaAtiva,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -56,10 +58,33 @@ export default function SettingsPage() {
   const saveConducaoNatural = useSaveSofiaConducaoNatural()
 
   async function handleChangeConducaoNatural(value: string) {
-    if (value !== "OFF" && value !== "SHADOW") return
+    if (value !== "OFF" && value !== "SHADOW" && value !== "ACTIVE") return
     try {
       await saveConducaoNatural.mutateAsync(value as SavableNaturalConversationMode)
-      toast.success(value === "OFF" ? "Condução natural desligada." : "Condução natural em modo Shadow (só observação).")
+      toast.success(
+        value === "OFF"
+          ? "Condução natural desligada."
+          : value === "SHADOW"
+            ? "Condução natural em modo Shadow (só observação)."
+            : "Condução natural ativa (reconhecimentos curtos, sem IA).",
+      )
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: whatsappAutomaticoAtiva, isLoading: whatsappAutomaticoLoading } =
+    useWhatsappAprovacaoAutomaticaAtiva()
+  const saveWhatsappAutomatico = useSaveWhatsappAprovacaoAutomaticaAtiva()
+
+  async function handleToggleWhatsappAutomatico(checked: boolean) {
+    try {
+      await saveWhatsappAutomatico.mutateAsync(checked)
+      toast.success(
+        checked
+          ? "Mensagem automática de aprovação ativada."
+          : "Mensagem automática de aprovação desativada.",
+      )
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
     }
@@ -180,8 +205,10 @@ export default function SettingsPage() {
           <CardTitle>Sofia — Condução Natural</CardTitle>
           <CardDescription>
             No modo Shadow, a Sofia analisa as mensagens e prepara reações naturais, mas a candidata
-            continua vendo o fluxo atual sem nenhuma alteração. Nada disso afeta a aprovação/reprovação
-            automática.
+            continua vendo o fluxo atual sem nenhuma alteração. No modo Ativo, ela passa a mostrar um
+            reconhecimento curto e fixo (sem IA) antes de nome, cidade, idade, WhatsApp e Instagram —
+            as perguntas abertas (profissão, objetivo etc.) continuam exatamente como hoje. Nada disso
+            afeta a aprovação/reprovação automática.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,7 +219,8 @@ export default function SettingsPage() {
               <div>
                 <Label htmlFor="sofia-conducao-natural">Modo</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  "Ativa" ainda não está disponível — só existe pra registrar a escolha, sem efeito.
+                  "Ativa" mostra reconhecimentos curtos e fixos (sem IA) em 5 perguntas de
+                  identificação — recomendo validar em Shadow por alguns dias antes de ativar.
                 </p>
               </div>
               <Select
@@ -206,11 +234,43 @@ export default function SettingsPage() {
                 <SelectContent>
                   <SelectItem value="OFF">Desligada — OFF</SelectItem>
                   <SelectItem value="SHADOW">Somente observar — SHADOW</SelectItem>
-                  <SelectItem value="ACTIVE" disabled>
-                    Ativa — disponível após validação do modo Shadow
-                  </SelectItem>
+                  <SelectItem value="ACTIVE">Ativa — reconhecimentos curtos, sem IA</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>WhatsApp — Mensagem automática na aprovação</CardTitle>
+          <CardDescription>
+            Quando ativado, assim que uma candidata é aprovada (pela IPR na hora ou manualmente pela
+            equipe depois), ela recebe automaticamente uma mensagem de aprovação pelo WhatsApp Cloud API
+            (API oficial da Meta), pelo mesmo número da equipe. O botão "Enviar WhatsApp" manual continua
+            existindo — a automática não substitui, só adianta o primeiro contato. Requer o cadastro na
+            Meta concluído (token + Phone Number ID + modelo de mensagem aprovado) antes de ligar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {whatsappAutomaticoLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="whatsapp-automatico-ativa">Mensagem automática ativada</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Só liga depois de testar com um número real — sem credenciais configuradas, o envio
+                  falha silenciosamente (best-effort, nunca trava a aprovação).
+                </p>
+              </div>
+              <Switch
+                id="whatsapp-automatico-ativa"
+                checked={Boolean(whatsappAutomaticoAtiva)}
+                onCheckedChange={(checked) => void handleToggleWhatsappAutomatico(checked)}
+                disabled={saveWhatsappAutomatico.isPending}
+              />
             </div>
           )}
         </CardContent>

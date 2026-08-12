@@ -22,6 +22,11 @@ export const trabalhaAtualmenteSchema = z.object({
 export const qualificacaoSchema = z.object({
   empresa_atual: z.string().trim().min(1, "Conte onde você trabalha"),
   profissao: z.string().trim().min(1, "Informe sua profissão"),
+  // QUALIFICACAO-002, Parte 1 — texto livre de propósito (mesmo padrão de
+  // `tempo_disponivel`, que também é `chips` + fallback de texto). A
+  // normalização pras 3 categorias (ALTA/MEDIA/BAIXA) acontece só no
+  // servidor (`finalize-candidate`), nunca aqui.
+  estabilidade_profissional: z.string().trim().min(1, "Selecione uma opção"),
   experiencia_vendas: z.boolean(),
   whatsapp: z.boolean(),
   possui_instagram: z.boolean(),
@@ -40,6 +45,10 @@ export const finalizeCandidatePayloadSchema = z.object({
   trabalha: z.boolean(),
   empresa_atual: z.string().optional(),
   profissao: z.string().optional(),
+  // QUALIFICACAO-002, Parte 1 — texto bruto do chip escolhido (ou texto
+  // livre digitado). NUNCA usada em calcularIpr/decidirStatus/classificarPerfil
+  // — só normalizada pra ALTA/MEDIA/BAIXA (ou null) dentro de finalize-candidate.
+  estabilidade_profissional: z.string().optional(),
   experiencia_vendas: z.boolean().optional(),
   instagram: z.string().optional().nullable(),
   whatsapp: z.boolean().optional(),

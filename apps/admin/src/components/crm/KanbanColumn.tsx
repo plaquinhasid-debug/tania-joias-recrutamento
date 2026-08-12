@@ -1,21 +1,22 @@
 import { useDroppable } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
-import { LEAD_STATUS_COLOR, type LeadStatus } from "@tania-joias/shared"
+import type { PipelineColumnKey } from "@tania-joias/shared"
 
 import { KanbanCard } from "@/components/crm/KanbanCard"
 import { cn } from "@/lib/utils"
+import type { LeadWithAnalysis } from "@/hooks/useLeads"
 import type { Lead } from "@/types"
 
 interface KanbanColumnProps {
-  status: LeadStatus
+  columnKey: PipelineColumnKey
   label: string
-  leads: Lead[]
+  color: string
+  leads: LeadWithAnalysis[]
   onSelectLead: (lead: Lead) => void
 }
 
-export function KanbanColumn({ status, label, leads, onSelectLead }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: status })
-  const color = LEAD_STATUS_COLOR[status]
+export function KanbanColumn({ columnKey, label, color, leads, onSelectLead }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: columnKey })
 
   return (
     <div className="flex w-80 shrink-0 flex-col rounded-xl bg-secondary/60">

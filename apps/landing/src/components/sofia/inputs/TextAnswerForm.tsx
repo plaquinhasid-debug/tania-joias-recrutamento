@@ -62,7 +62,7 @@ export function TextAnswerForm({
             disabled={disabled}
             rows={3}
             aria-invalid={Boolean(errorMessage)}
-            className="flex-1"
+            className="flex-1 rounded-2xl border-none bg-white focus-visible:ring-[var(--wa-accent)]/40"
             autoFocus
           />
         ) : (
@@ -71,17 +71,19 @@ export function TextAnswerForm({
             placeholder={placeholder}
             disabled={disabled}
             aria-invalid={Boolean(errorMessage)}
-            className="flex-1"
+            className="flex-1 rounded-full border-none bg-white focus-visible:ring-[var(--wa-accent)]/40"
             autoFocus
           />
         )}
         <Button
           type="submit"
           size="icon"
-          variant="gold"
           disabled={disabled}
           aria-label="Enviar resposta"
-          className={cn(multiline && "mb-0")}
+          className={cn(
+            "rounded-full bg-[var(--wa-accent)] text-[var(--wa-accent-foreground)] hover:bg-[var(--wa-accent)]/90",
+            multiline && "mb-0",
+          )}
         >
           <Send className="size-4" />
         </Button>

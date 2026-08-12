@@ -7,7 +7,7 @@ interface IprCounterProps {
 }
 
 /** Anima a contagem de 0 até `target` usando requestAnimationFrame. */
-export function IprCounter({ target, durationMs = 1300, onDone }: IprCounterProps) {
+export function IprCounter({ target, durationMs = 2200, onDone }: IprCounterProps) {
   const [value, setValue] = useState(0)
 
   useEffect(() => {

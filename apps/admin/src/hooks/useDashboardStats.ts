@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
-import { KANBAN_COLUMNS } from "@tania-joias/shared"
+import { LEAD_STATUS_LABEL, type LeadStatus } from "@tania-joias/shared"
 import { endOfDay, format, isAfter, isSameDay, startOfDay, subDays } from "date-fns"
+
+// Distribuição por `lead_status` pro gráfico do Dashboard — só as 4 colunas
+// originais, sem as etapas pós-aprovação do Kanban (que vivem em
+// `PIPELINE_COLUMNS`, um recorte diferente, usado só no CRM).
+const DASHBOARD_STATUS_ORDER: LeadStatus[] = ["novo", "em_analise", "aprovada", "reprovada"]
 
 import { supabase } from "@/lib/supabase"
 
@@ -56,10 +61,10 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   const total = rows.length
   const conversionRate = total > 0 ? (aprovadas / total) * 100 : 0
 
-  const funnel = KANBAN_COLUMNS.map((col) => ({
-    status: col.status,
-    label: col.label,
-    total: statusCounts.get(col.status) ?? 0,
+  const funnel = DASHBOARD_STATUS_ORDER.map((status) => ({
+    status,
+    label: LEAD_STATUS_LABEL[status],
+    total: statusCounts.get(status) ?? 0,
   }))
 
   const timelineDays: { date: string; label: string; total: number }[] = []

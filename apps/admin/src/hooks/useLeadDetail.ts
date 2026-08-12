@@ -57,7 +57,7 @@ export function useLeadAnalysis(id: string | undefined) {
 
 interface UpdateLeadInput {
   id: string
-  patch: Partial<Pick<Lead, "status" | "observacoes">>
+  patch: Partial<Pick<Lead, "status" | "observacoes" | "etapa_pos_aprovacao">>
 }
 
 export function useUpdateLead() {
@@ -74,13 +74,16 @@ export function useUpdateLead() {
       if (error) throw error
       return data
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.setQueryData(["lead", data.id], data)
       void queryClient.invalidateQueries({ queryKey: ["leads"] })
       void queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
 
-      if (data.status === "aprovada") {
+      // Só dispara quando ESTA atualização é a que aprova a lead — não quando
+      // ela já estava aprovada e só a etapa pós-aprovação mudou (arrastar
+      // entre Contatada/Confirmada/Ativa/Desistiu não pode reenviar o evento).
+      if (variables.patch.status === "aprovada") {
         // Avisa o Meta Conversions API sobre a aprovação manual (a lead pode
         // ter caído em "análise" e só sido aprovada dias depois pela equipe,
         // quando o Pixel do navegador já não está mais disponível). Fire-and-
@@ -89,6 +92,16 @@ export function useUpdateLead() {
           .invoke("send-meta-lead-event", { body: { lead_id: data.id } })
           .then(({ error }) => {
             if (error) console.warn("[meta] falha ao enviar evento Lead", error)
+          })
+
+        // Mesma lógica pro WhatsApp automático de aprovação — cobre o caso de
+        // aprovação manual (a Sofia só dispara isso sozinha quando a IPR
+        // aprova na hora, em `finalize-candidate`). Best-effort e idempotente
+        // (a Edge Function checa a flag e `whatsapp_automatico_enviado_em`).
+        supabase.functions
+          .invoke("send-whatsapp-approval", { body: { lead_id: data.id } })
+          .then(({ error }) => {
+            if (error) console.warn("[whatsapp] falha ao enviar aprovação", error)
           })
       }
     },

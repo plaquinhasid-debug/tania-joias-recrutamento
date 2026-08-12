@@ -4,6 +4,8 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import { PhoneCall } from "lucide-react"
+import { PROXIMA_ACAO_LABEL } from "@tania-joias/shared"
 
 import {
   Table,
@@ -13,14 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/common/EmptyState"
 import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
+import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { formatDate, formatPhone } from "@/lib/format"
+import { latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
 import type { Lead } from "@/types"
 
-const columnHelper = createColumnHelper<Lead>()
+const columnHelper = createColumnHelper<LeadWithAnalysis>()
 
 const columns = [
   columnHelper.accessor("nome", {
@@ -38,6 +43,20 @@ const columns = [
   columnHelper.accessor("status", {
     header: "Status",
     cell: (info) => <LeadStatusBadge status={info.getValue()} />,
+  }),
+  columnHelper.display({
+    id: "proxima_acao",
+    header: "Ação",
+    cell: (info) => {
+      const proximaAcao = latestProximaAcao(info.row.original)
+      if (!proximaAcao || proximaAcao === "aguardar") return null
+      return (
+        <Badge variant={PROXIMA_ACAO_VARIANT[proximaAcao]} className="gap-1">
+          <PhoneCall className="size-3" />
+          {PROXIMA_ACAO_LABEL[proximaAcao]}
+        </Badge>
+      )
+    },
   }),
   columnHelper.accessor("ipr", {
     header: "IPR",
@@ -58,7 +77,7 @@ const columns = [
 ]
 
 interface LeadsTableProps {
-  leads: Lead[]
+  leads: LeadWithAnalysis[]
   isLoading: boolean
   onSelectLead: (lead: Lead) => void
 }

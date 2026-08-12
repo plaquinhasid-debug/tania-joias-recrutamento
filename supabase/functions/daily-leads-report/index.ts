@@ -55,14 +55,31 @@ function renderLeadItem(lead: LeadRow): string {
   `
 }
 
+type AbandonedRow = {
+  session_id: string
+  started_at: string
+  nome: string | null
+  telefone: string | null
+}
+
+function renderAbandonedItem(row: AbandonedRow): string {
+  return `
+    <li style="margin-bottom:8px;">
+      <strong>${row.nome ?? "Sem nome ainda"}</strong>
+      ${row.telefone ? ` — ${formatPhone(row.telefone)}` : ""}
+    </li>
+  `
+}
+
 function renderEmailHtml(params: {
   label: string
   total: number
   aprovadas: LeadRow[]
   emAnalise: LeadRow[]
   reprovadasCount: number
+  abandonadas: AbandonedRow[]
 }): string {
-  const { label, total, aprovadas, emAnalise, reprovadasCount } = params
+  const { label, total, aprovadas, emAnalise, reprovadasCount, abandonadas } = params
 
   return `
   <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
@@ -104,6 +121,13 @@ function renderEmailHtml(params: {
 
     ${total === 0 ? `<p style="color:#777;">Nenhum lead novo nesse dia.</p>` : ""}
 
+    ${
+      abandonadas.length > 0
+        ? `<h3 style="color:#8a6d3b;">💬 Abandonaram a conversa — sem finalizar</h3>
+           <ul style="padding-left:18px;">${abandonadas.map(renderAbandonedItem).join("")}</ul>`
+        : ""
+    }
+
     <p style="margin-top:30px; font-size:12px; color:#999;">
       Enviado automaticamente pelo sistema Tania Joias. Veja todos os detalhes no
       <a href="https://tania-joias-recrutamento.vercel.app" style="color:#8a6d3b;">painel Admin</a>.
@@ -136,12 +160,55 @@ Deno.serve(async () => {
   const emAnalise = rows.filter((l) => l.status === "em_analise")
   const reprovadasCount = rows.filter((l) => l.status === "reprovada").length
 
+  // Conversas iniciadas ontem que nunca viraram lead (RFC-012) — cruza
+  // `conversations` com as respostas parciais em `answers` pelo mesmo
+  // `session_id`, sem nenhuma tabela ou coluna nova.
+  const { data: abandonedConversations, error: abandonedError } = await supabase
+    .from("conversations")
+    .select("session_id, started_at")
+    .is("completed_at", null)
+    .is("lead_id", null)
+    .gte("started_at", start.toISOString())
+    .lt("started_at", end.toISOString())
+    .order("started_at", { ascending: true })
+
+  if (abandonedError) {
+    return new Response(JSON.stringify({ error: abandonedError.message }), { status: 500 })
+  }
+
+  const abandonedSessionIds = (abandonedConversations ?? []).map((c) => c.session_id)
+  const { data: abandonedAnswers, error: abandonedAnswersError } = abandonedSessionIds.length
+    ? await supabase
+        .from("answers")
+        .select("session_id, question_key, answer_value")
+        .in("session_id", abandonedSessionIds)
+    : { data: [], error: null }
+
+  if (abandonedAnswersError) {
+    return new Response(JSON.stringify({ error: abandonedAnswersError.message }), { status: 500 })
+  }
+
+  const abandonadas: AbandonedRow[] = (abandonedConversations ?? []).map((conv) => {
+    const ownAnswers = (abandonedAnswers ?? []).filter((a) => a.session_id === conv.session_id)
+    // findLast: `answers` permite múltiplas linhas pra mesma question_key
+    // (RFC-012) — a mais recente é a que vale.
+    const findAnswer = (key: string) =>
+      ownAnswers.findLast((a) => a.question_key === key)?.answer_value ?? null
+    return {
+      session_id: conv.session_id,
+      started_at: conv.started_at,
+      nome: findAnswer("nome"),
+      telefone: findAnswer("telefone"),
+    }
+  })
+
   const html = renderEmailHtml({
     label,
     total: rows.length,
     aprovadas,
     emAnalise,
     reprovadasCount,
+    abandonadas,
   })
 
   const resendApiKey = Deno.env.get("RESEND_API_KEY")
@@ -168,5 +235,8 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ error: "resend_send_failed", detail }), { status: 502 })
   }
 
-  return new Response(JSON.stringify({ sent: true, total: rows.length, label }), { status: 200 })
+  return new Response(
+    JSON.stringify({ sent: true, total: rows.length, abandonadas: abandonadas.length, label }),
+    { status: 200 },
+  )
 })

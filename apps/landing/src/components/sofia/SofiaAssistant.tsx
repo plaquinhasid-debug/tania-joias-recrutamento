@@ -64,7 +64,10 @@ export function SofiaAssistant({ open, onOpenChange }: SofiaAssistantProps) {
   useEffect(() => {
     if (open) return
     if (!conversationStarted.current) return
-    if (flow.phase === "result") return
+    // FEATURE-005 Parte 7.1: "abandoned" já é um encerramento explícito e
+    // definitivo (candidata disse "tchau"/"quero parar") — não conta de
+    // novo como abandono passivo de fechar o drawer.
+    if (flow.phase === "result" || flow.phase === "abandoned") return
 
     void logEvent({
       tipoEvento: "chat_abandonado",

@@ -8,6 +8,7 @@ import LeadsPage from "@/pages/LeadsPage"
 import CrmPage from "@/pages/CrmPage"
 import ReportsPage from "@/pages/ReportsPage"
 import RadarPage from "@/pages/RadarPage"
+import AbandonmentPage from "@/pages/AbandonmentPage"
 import SettingsPage from "@/pages/SettingsPage"
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="crm" element={<CrmPage />} />
           <Route path="relatorios" element={<ReportsPage />} />
           <Route path="radar" element={<RadarPage />} />
+          <Route path="abandonos" element={<AbandonmentPage />} />
           <Route path="configuracoes" element={<SettingsPage />} />
         </Route>
       </Route>

@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Radar,
   Settings,
+  UserX,
   Users,
 } from "lucide-react"
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: "/crm", label: "CRM", icon: KanbanSquare },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/radar", label: "Radar da Sofia", icon: Radar },
+  { to: "/abandonos", label: "Abandonos", icon: UserX },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ]
 

@@ -129,6 +129,23 @@ const SMALL_TALK_MARKERS = [
 
 const QUESTION_STARTERS = ["quanto", "como", "quando", "onde", "por que", "porque", "qual", "quais", "o que", "quem"]
 
+// FEATURE-005 Parte 7, Objetivo 7: perguntas indiretas educadas ("Gostaria
+// de saber se...") não usam nenhuma das palavras interrogativas acima nem
+// "?" — sem isso, "Gostaria de saber se preciso comprar o primeiro
+// mostruário" passava como resposta válida de qualquer campo aberto.
+// Pequena lista de frases fixas, não é NLP de verdade — mesma limitação
+// documentada (baseado em palavra-chave) do resto do classificador.
+const INDIRECT_QUESTION_PHRASES = [
+  "gostaria de saber",
+  "queria saber",
+  "preciso saber",
+  "gostaria de entender",
+  "queria entender",
+  "preciso entender",
+  "gostaria de perguntar",
+  "queria perguntar",
+]
+
 // Objetivo 5: "como" logo depois de um verbo de autodescrição ("trabalho
 // como professora") é comparativo ("as"), não interrogativo ("how"). Sem
 // essa exceção, qualquer resposta de profissão que use "como" nesse sentido
@@ -147,6 +164,7 @@ function containsWholeWord(texto: string, palavra: string): boolean {
  * normalizado, mas ignora um "como" comparativo (ver `isComoUsedAsComparison`). */
 function looksLikeQuestion(texto: string): boolean {
   if (texto.includes("?")) return true
+  if (containsAny(texto, INDIRECT_QUESTION_PHRASES)) return true
   for (const starter of QUESTION_STARTERS) {
     if (texto.startsWith(normalize(starter))) return true
     if (starter === "como" && isComoUsedAsComparison(texto)) continue
@@ -187,6 +205,12 @@ function isFieldCompatible(fieldKey: string, texto: string): boolean {
     case "cidade":
     case "empresa_atual":
     case "objetivo":
+    // QUALIFICACAO-002, Parte 1 — os 3 chips ("Fixa...", "Variável...",
+    // "Esporádica...") não batem em nenhum marcador de dúvida/objeção/small
+    // talk/pergunta, então a mesma regra de campo aberto já os aceita
+    // corretamente. Sem este case, o default (`false`) faria a Parte 7.1
+    // rejeitar QUALQUER clique de chip nesta etapa como não-resposta.
+    case "estabilidade_profissional":
       return texto.length > 0 && !matchesAnyNonAnswerMarker(texto)
 
     case "idade":
