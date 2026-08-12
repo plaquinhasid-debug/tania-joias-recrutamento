@@ -44,6 +44,24 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
   const [grouped, setGrouped] = React.useState<GroupedLeads>(() => groupByColumn(leads))
   const [activeLead, setActiveLead] = React.useState<LeadWithAnalysis | null>(null)
   const updateLead = useUpdateLead()
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  // O board tem mais colunas do que cabem na tela — sem isso, quem só tem
+  // roda de mouse vertical (a maioria) não consegue ver as colunas da direita.
+  // Precisa ser um listener nativo (não a prop `onWheel`): o React registra
+  // "wheel" como passivo por padrão, o que faz `preventDefault` ser ignorado.
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    function handleWheel(event: WheelEvent) {
+      if (!el || el.scrollWidth <= el.clientWidth) return
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+      event.preventDefault()
+      el.scrollLeft += event.deltaY
+    }
+    el.addEventListener("wheel", handleWheel, { passive: false })
+    return () => el.removeEventListener("wheel", handleWheel)
+  }, [])
 
   React.useEffect(() => {
     setGrouped(groupByColumn(leads))
@@ -110,7 +128,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-4">
         {PIPELINE_COLUMNS.map((col) => (
           <KanbanColumn
             key={col.key}
