@@ -4,8 +4,10 @@ import {
   DragOverlay,
   PointerSensor,
   closestCorners,
+  pointerWithin,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
@@ -71,6 +73,16 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
+  // `closestCorners` sozinho pode escolher um card de uma coluna vizinha
+  // quando se solta sobre uma coluna vazia (ou com poucos cards por perto),
+  // fazendo o card voltar pra coluna de origem sem erro nenhum. `pointerWithin`
+  // resolve pela posição real do cursor primeiro — só cai pra `closestCorners`
+  // se o cursor não estiver literalmente sobre nenhuma área soltável.
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args)
+    return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args)
+  }
+
   function findColumnOf(leadId: string): PipelineColumnKey | null {
     for (const col of PIPELINE_COLUMNS) {
       if (grouped[col.key].some((lead) => lead.id === leadId)) return col.key
@@ -111,7 +123,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     }))
 
     updateLead.mutate(
-      { id: leadId, patch },
+      { id: leadId, patch, previousStatus: lead.status },
       {
         onError: () => {
           toast.error("Não foi possível mover o lead. Tente novamente.")
@@ -124,7 +136,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

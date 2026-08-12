@@ -73,7 +73,7 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   async function handleStatusChange(status: "aprovada" | "reprovada") {
     if (!lead) return
     try {
-      await updateLead.mutateAsync({ id: lead.id, patch: { status } })
+      await updateLead.mutateAsync({ id: lead.id, patch: { status }, previousStatus: lead.status })
       toast.success(status === "aprovada" ? "Lead aprovada." : "Lead reprovada.")
     } catch {
       toast.error("Não foi possível atualizar o status.")

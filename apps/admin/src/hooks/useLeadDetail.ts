@@ -58,6 +58,8 @@ export function useLeadAnalysis(id: string | undefined) {
 interface UpdateLeadInput {
   id: string
   patch: Partial<Pick<Lead, "status" | "observacoes" | "etapa_pos_aprovacao">>
+  /** Status da lead ANTES deste patch — usado só para decidir se o evento de aprovação deve disparar. */
+  previousStatus?: Lead["status"]
 }
 
 export function useUpdateLead() {
@@ -83,7 +85,7 @@ export function useUpdateLead() {
       // Só dispara quando ESTA atualização é a que aprova a lead — não quando
       // ela já estava aprovada e só a etapa pós-aprovação mudou (arrastar
       // entre Contatada/Confirmada/Ativa/Desistiu não pode reenviar o evento).
-      if (variables.patch.status === "aprovada") {
+      if (variables.patch.status === "aprovada" && variables.previousStatus !== "aprovada") {
         // Avisa o Meta Conversions API sobre a aprovação manual (a lead pode
         // ter caído em "análise" e só sido aprovada dias depois pela equipe,
         // quando o Pixel do navegador já não está mais disponível). Fire-and-
