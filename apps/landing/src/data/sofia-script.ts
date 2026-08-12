@@ -123,7 +123,7 @@ export const SOFIA_STEPS: SofiaStep[] = [
   {
     key: "profissao",
     kind: "text",
-    question: "Qual é a sua profissão?",
+    question: "Profissão?",
     placeholder: "Sua profissão",
     schema: qualificacaoSchema.shape.profissao,
     skip: trabalhaFalso,
