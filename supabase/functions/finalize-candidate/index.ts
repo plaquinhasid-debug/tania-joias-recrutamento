@@ -369,6 +369,24 @@ Deno.serve(async (req) => {
   )
 
   if (status === "aprovada") {
+    // Gera o link da Ficha de Aprovação sozinho, mesmo quando a própria IPR
+    // já aprova a candidata na hora (sem passar pela equipe no Admin) — sem
+    // isso, essa lead ficava esperando alguém lembrar de gerar o link
+    // manualmente. Best-effort: nunca deve derrubar a resposta principal.
+    try {
+      const { error: fichaError } = await supabase
+        .from("leads_ficha")
+        .insert({ lead_id: lead.id })
+      if (fichaError) throw fichaError
+      await supabase
+        .from("leads")
+        .update({ etapa_pos_aprovacao: "contatada" })
+        .eq("id", lead.id)
+        .is("etapa_pos_aprovacao", null)
+    } catch (err) {
+      console.error("[finalize-candidate] falha ao gerar link da Ficha automaticamente", err)
+    }
+
     const pixelId = Deno.env.get("META_PIXEL_ID")
     const accessToken = Deno.env.get("META_CONVERSIONS_API_TOKEN")
     if (pixelId && accessToken) {

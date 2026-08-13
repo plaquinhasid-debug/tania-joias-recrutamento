@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { supabase } from "@/lib/supabase"
+import { generateFichaLink } from "@/hooks/useLeadFicha"
 import type { Answer, AiAnalysis, Lead } from "@/types"
 
 async function fetchLead(id: string): Promise<Lead> {
@@ -105,6 +106,14 @@ export function useUpdateLead() {
           .then(({ error }) => {
             if (error) console.warn("[whatsapp] falha ao enviar aprovação", error)
           })
+
+        // Gera o link da Ficha de Aprovação sozinho — a equipe não precisa
+        // mais lembrar de clicar em "Gerar link da Ficha" depois de aprovar.
+        generateFichaLink(data.id)
+          .then(() => {
+            void queryClient.invalidateQueries({ queryKey: ["lead-ficha", data.id] })
+          })
+          .catch((err) => console.warn("[ficha] falha ao gerar link automaticamente", err))
       }
     },
   })

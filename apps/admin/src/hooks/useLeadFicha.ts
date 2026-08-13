@@ -34,30 +34,45 @@ export function useLeadFicha(leadId: string | undefined) {
   })
 }
 
+/**
+ * Gera o link da Ficha (ou devolve o já existente, se por algum motivo já
+ * tiver sido gerado) e avança o card pra "Ficha enviada" no Kanban.
+ * Chamada tanto pelo botão manual (`useGenerateFichaLink`) quanto
+ * automaticamente assim que uma lead vira "aprovada" (`useLeadDetail.ts`).
+ */
+export async function generateFichaLink(leadId: string): Promise<LeadFicha> {
+  const { data: existing } = await supabase
+    .from("leads_ficha")
+    .select("*")
+    .eq("lead_id", leadId)
+    .maybeSingle()
+  if (existing) return existing
+
+  const { data, error } = await supabase
+    .from("leads_ficha")
+    .insert({ lead_id: leadId })
+    .select("*")
+    .single()
+  if (error) throw error
+
+  // Avança o card pra "Ficha enviada" no Kanban sozinho — só quando ela
+  // ainda estava parada em "Aprovada" (`.is(..., null)` evita empurrar
+  // pra trás uma lead que já tinha avançado mais, ex.: se o link for
+  // gerado de novo por engano).
+  await supabase
+    .from("leads")
+    .update({ etapa_pos_aprovacao: "contatada" })
+    .eq("id", leadId)
+    .is("etapa_pos_aprovacao", null)
+
+  return data
+}
+
 export function useGenerateFichaLink() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (leadId: string) => {
-      const { data, error } = await supabase
-        .from("leads_ficha")
-        .insert({ lead_id: leadId })
-        .select("*")
-        .single()
-      if (error) throw error
-
-      // Avança o card pra "Ficha enviada" no Kanban sozinho — só quando ela
-      // ainda estava parada em "Aprovada" (`.is(..., null)` evita empurrar
-      // pra trás uma lead que já tinha avançado mais, ex.: se o link for
-      // gerado de novo por engano).
-      await supabase
-        .from("leads")
-        .update({ etapa_pos_aprovacao: "contatada" })
-        .eq("id", leadId)
-        .is("etapa_pos_aprovacao", null)
-
-      return data
-    },
+    mutationFn: generateFichaLink,
     onSuccess: (data) => {
       queryClient.setQueryData(["lead-ficha", data.lead_id], data)
       void queryClient.invalidateQueries({ queryKey: ["leads"] })
