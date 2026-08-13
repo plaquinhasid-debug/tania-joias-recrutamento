@@ -45,10 +45,23 @@ export function useGenerateFichaLink() {
         .select("*")
         .single()
       if (error) throw error
+
+      // Avança o card pra "Contatada" no Kanban sozinho — só quando ela
+      // ainda estava parada em "Aprovada" (`.is(..., null)` evita empurrar
+      // pra trás uma lead que já tinha avançado mais, ex.: se o link for
+      // gerado de novo por engano).
+      await supabase
+        .from("leads")
+        .update({ etapa_pos_aprovacao: "contatada" })
+        .eq("id", leadId)
+        .is("etapa_pos_aprovacao", null)
+
       return data
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["lead-ficha", data.lead_id], data)
+      void queryClient.invalidateQueries({ queryKey: ["leads"] })
+      void queryClient.invalidateQueries({ queryKey: ["lead", data.lead_id] })
     },
   })
 }

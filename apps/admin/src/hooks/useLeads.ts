@@ -14,9 +14,10 @@ export const DEFAULT_LEAD_FILTERS: LeadFiltersState = {
   dateTo: null,
 }
 
-/** Lead com o histórico de análises embutido — só o suficiente pra achar a mais recente. */
+/** Lead com o histórico de análises e a Ficha de Aprovação embutidos — só o suficiente pro Kanban/lista. */
 export type LeadWithAnalysis = Lead & {
   ai_analysis: { proxima_acao: string | null; created_at: string }[]
+  leads_ficha: { preenchido_em: string | null }[]
 }
 
 /** Uma lead pode ter mais de uma `ai_analysis` (reprocessamento) — a mais recente é a que vale. */
@@ -25,10 +26,17 @@ export function latestProximaAcao(lead: LeadWithAnalysis): ProximaAcao | null {
   return (latest?.proxima_acao as ProximaAcao | undefined) ?? null
 }
 
+/** `null` = ainda não gerou o link da ficha — não mostra selo nenhum no card. */
+export function fichaStatusForLead(lead: LeadWithAnalysis): "pendente" | "preenchida" | null {
+  const ficha = lead.leads_ficha[0]
+  if (!ficha) return null
+  return ficha.preenchido_em ? "preenchida" : "pendente"
+}
+
 async function fetchLeads(filters: LeadFiltersState): Promise<LeadWithAnalysis[]> {
   let query = supabase
     .from("leads")
-    .select("*, ai_analysis(proxima_acao, created_at)")
+    .select("*, ai_analysis(proxima_acao, created_at), leads_ficha(preenchido_em)")
     .order("created_at", { ascending: false })
 
   if (filters.status !== "todos") {

@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { PhoneCall } from "lucide-react"
+import { ClipboardCheck, ClipboardList, PhoneCall } from "lucide-react"
 import { PROXIMA_ACAO_LABEL } from "@tania-joias/shared"
 
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { cn } from "@/lib/utils"
 import { formatDate, formatPhone } from "@/lib/format"
-import { latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
+import { fichaStatusForLead, latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
 
 interface KanbanCardProps {
   lead: LeadWithAnalysis
@@ -26,6 +26,7 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   }
 
   const proximaAcao = latestProximaAcao(lead)
+  const fichaStatus = fichaStatusForLead(lead)
 
   return (
     <div
@@ -46,6 +47,16 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
         <Badge variant={PROXIMA_ACAO_VARIANT[proximaAcao]} className="mt-2 gap-1">
           <PhoneCall className="size-3" />
           {PROXIMA_ACAO_LABEL[proximaAcao]}
+        </Badge>
+      )}
+      {fichaStatus && (
+        <Badge variant={fichaStatus === "preenchida" ? "success" : "gold"} className="mt-2 gap-1">
+          {fichaStatus === "preenchida" ? (
+            <ClipboardCheck className="size-3" />
+          ) : (
+            <ClipboardList className="size-3" />
+          )}
+          {fichaStatus === "preenchida" ? "Ficha preenchida" : "Ficha pendente"}
         </Badge>
       )}
       <div className="mt-2 flex items-center justify-between gap-2">
