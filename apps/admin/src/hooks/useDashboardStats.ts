@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { LEAD_STATUS_LABEL, type LeadStatus } from "@tania-joias/shared"
-import { endOfDay, format, isAfter, isSameDay, startOfDay, subDays } from "date-fns"
+import { addDays, endOfDay, format, isAfter, isSameDay, parseISO, startOfDay, subDays } from "date-fns"
 
 // Distribuição por `lead_status` pro gráfico do Dashboard — só as 4 colunas
 // originais, sem as etapas pós-aprovação do Kanban (que vivem em
@@ -15,6 +15,16 @@ interface LeadStatRow {
   status: string
 }
 
+export interface DashboardFiltersState {
+  dateFrom: string | null
+  dateTo: string | null
+}
+
+export const DEFAULT_DASHBOARD_FILTERS: DashboardFiltersState = {
+  dateFrom: null,
+  dateTo: null,
+}
+
 export interface DashboardStats {
   today: number
   week: number
@@ -26,12 +36,22 @@ export interface DashboardStats {
   timeline: { date: string; label: string; total: number }[]
 }
 
-async function fetchDashboardStats(): Promise<DashboardStats> {
-  const { data, error } = await supabase
+async function fetchDashboardStats(
+  filters: DashboardFiltersState = DEFAULT_DASHBOARD_FILTERS,
+): Promise<DashboardStats> {
+  let query = supabase
     .from("leads")
     .select("id, created_at, status")
     .order("created_at", { ascending: true })
 
+  if (filters.dateFrom) {
+    query = query.gte("created_at", filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    query = query.lte("created_at", `${filters.dateTo}T23:59:59.999`)
+  }
+
+  const { data, error } = await query
   if (error) throw error
   const rows = (data ?? []) as LeadStatRow[]
 
@@ -67,9 +87,14 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
     total: statusCounts.get(status) ?? 0,
   }))
 
+  // Sem filtro: mantém o comportamento original (14 dias terminando hoje).
+  // Com filtro, o gráfico passa a cobrir o período escolhido em vez de um
+  // recorte fixo — faz mais sentido pra correlacionar com uma campanha.
+  const rangeEnd = filters.dateTo ? startOfDay(parseISO(filters.dateTo)) : todayStart
+  const rangeStart = filters.dateFrom ? startOfDay(parseISO(filters.dateFrom)) : subDays(rangeEnd, 13)
+
   const timelineDays: { date: string; label: string; total: number }[] = []
-  for (let i = 13; i >= 0; i -= 1) {
-    const day = subDays(todayStart, i)
+  for (let day = rangeStart; day <= rangeEnd; day = addDays(day, 1)) {
     const dayEnd = endOfDay(day)
     const total = rows.filter((row) => {
       const createdAt = new Date(row.created_at)
@@ -94,10 +119,10 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   }
 }
 
-export function useDashboardStats() {
+export function useDashboardStats(filters: DashboardFiltersState = DEFAULT_DASHBOARD_FILTERS) {
   return useQuery({
-    queryKey: ["dashboard-stats"],
-    queryFn: fetchDashboardStats,
+    queryKey: ["dashboard-stats", filters],
+    queryFn: () => fetchDashboardStats(filters),
     staleTime: 15_000,
   })
 }

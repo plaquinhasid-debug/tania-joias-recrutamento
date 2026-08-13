@@ -1,3 +1,4 @@
+import * as React from "react"
 import { CalendarDays, CheckCircle2, TrendingUp, Users, XCircle } from "lucide-react"
 
 import { PageHeader } from "@/components/common/PageHeader"
@@ -5,14 +6,21 @@ import { ErrorState } from "@/components/common/ErrorState"
 import { StatCard, StatCardSkeleton } from "@/components/dashboard/StatCard"
 import { LeadsLineChart } from "@/components/dashboard/LeadsLineChart"
 import { StatusFunnelChart } from "@/components/dashboard/StatusFunnelChart"
+import { DashboardFilters } from "@/components/dashboard/DashboardFilters"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useDashboardStats } from "@/hooks/useDashboardStats"
+import {
+  DEFAULT_DASHBOARD_FILTERS,
+  useDashboardStats,
+  type DashboardFiltersState,
+} from "@/hooks/useDashboardStats"
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads"
 import { formatPercent } from "@/lib/format"
 
 export default function DashboardPage() {
   useRealtimeLeads()
-  const { data, isLoading, isError, refetch } = useDashboardStats()
+  const [filters, setFilters] = React.useState<DashboardFiltersState>(DEFAULT_DASHBOARD_FILTERS)
+  const { data, isLoading, isError, refetch } = useDashboardStats(filters)
+  const hasActiveFilters = filters.dateFrom !== null || filters.dateTo !== null
 
   return (
     <div>
@@ -20,6 +28,8 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Visão geral das candidatas a revendedora captadas pela Landing Page."
       />
+
+      <DashboardFilters filters={filters} onChange={setFilters} />
 
       {isError && (
         <ErrorState description="Verifique sua conexão e tente novamente." onRetry={() => refetch()} />
@@ -50,7 +60,11 @@ export default function DashboardPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Evolução de leads (últimos 14 dias)</CardTitle>
+                <CardTitle>
+                  {hasActiveFilters
+                    ? "Evolução de leads no período selecionado"
+                    : "Evolução de leads (últimos 14 dias)"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading || !data ? (
