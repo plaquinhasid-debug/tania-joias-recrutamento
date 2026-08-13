@@ -1,5 +1,5 @@
 import { toast } from "sonner"
-import { Copy, Loader2 } from "lucide-react"
+import { Copy, Loader2, MapPin } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,25 @@ function CampoPreenchido({ label, value }: { label: string; value: string | null
       <p className="mt-0.5 text-sm text-foreground">{value || "—"}</p>
     </div>
   )
+}
+
+function googleMapsUrl(ficha: {
+  endereco_rua: string | null
+  endereco_numero: string | null
+  endereco_bairro: string | null
+  endereco_cidade: string | null
+  endereco_cep: string | null
+}): string {
+  const endereco = [
+    ficha.endereco_rua,
+    ficha.endereco_numero,
+    ficha.endereco_bairro,
+    ficha.endereco_cidade,
+    ficha.endereco_cep,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`
 }
 
 export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
@@ -86,6 +105,16 @@ export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
             <CampoPreenchido label="Nome do pai" value={ficha.nome_pai} />
             <CampoPreenchido label="Nome da mãe" value={ficha.nome_mae} />
           </div>
+
+          <a
+            href={googleMapsUrl(ficha)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gold-foreground hover:underline"
+          >
+            <MapPin className="size-3.5" />
+            Ver no Google Maps
+          </a>
 
           {ficha.tem_conjuge && (
             <CampoPreenchido
