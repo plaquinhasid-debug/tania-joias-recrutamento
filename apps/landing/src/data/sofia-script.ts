@@ -30,10 +30,14 @@ export const SOFIA_REJECTION_LINES = [
   "Por esse motivo, não conseguimos seguir com sua candidatura agora — mas você pode se candidatar novamente assim que essa situação mudar.",
 ] as const
 
+// Deixa explícito que isso é só a 1ª etapa e o que vem a seguir — antes só
+// dizia "aprovado" sem dizer o quê, o que deixava a candidata sem saber que
+// ainda falta preencher a Ficha (segunda etapa) pra receber o Mostruário.
 export const SOFIA_APPROVED_LINES = [
-  "Parabéns!",
-  "Seu perfil foi aprovado.",
-  "Nossa equipe entrará em contato em breve.",
+  "Parabéns! 🌸",
+  "Você concluiu a primeira etapa e está pré-aprovada!",
+  "Em breve você vai receber um link pelo WhatsApp pra preencher a segunda parte do cadastro — é rápido.",
+  "Depois de confirmado, seu Mostruário já pode ser liberado.",
 ] as const
 
 export const SOFIA_EM_ANALISE_LINES = [
