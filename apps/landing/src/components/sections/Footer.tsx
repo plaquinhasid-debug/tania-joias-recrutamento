@@ -23,6 +23,9 @@ export function Footer() {
       </div>
 
       <div className="mx-auto mt-6 flex max-w-6xl flex-col items-center gap-2 border-t border-border px-6 pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-center sm:gap-6">
+        <a href="/politica-de-privacidade" className="hover:text-foreground">
+          PolÃ­tica de Privacidade
+        </a>
         <span className="flex items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           R. Vereador Fernando Zanella, 13 — 1º andar, sala 04, Centro, Mauá/SP

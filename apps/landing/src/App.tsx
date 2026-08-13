@@ -14,13 +14,14 @@ import { FichaPage } from "@/pages/FichaPage"
 import { useLandingTracking } from "@/hooks/useLandingTracking"
 import { useSessionId } from "@/hooks/useSessionId"
 import { useUtmParams } from "@/hooks/useUtmParams"
+import { PrivacyPolicy } from "@/pages/PrivacyPolicy"
 
 // `/ficha/:token` é uma página pública separada (formulário pós-aprovação,
 // sem IA/chat) — sem router de verdade no projeto, então o desvio é feito
 // aqui mesmo, olhando a URL antes de montar a Landing normal.
 const FICHA_PATH_MATCH = /^\/ficha\/([^/]+)\/?$/
 
-function App() {
+function LandingPage() {
   const [sofiaOpen, setSofiaOpen] = useState(false)
   const sessionId = useSessionId()
   const utm = useUtmParams()
@@ -28,11 +29,6 @@ function App() {
   useLandingTracking(sessionId, utm)
 
   const openSofia = () => setSofiaOpen(true)
-
-  const fichaMatch = window.location.pathname.match(FICHA_PATH_MATCH)
-  if (fichaMatch) {
-    return <FichaPage token={fichaMatch[1]} />
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -53,6 +49,19 @@ function App() {
       <SofiaAssistant open={sofiaOpen} onOpenChange={setSofiaOpen} />
     </div>
   )
+}
+
+function App() {
+  if (window.location.pathname === "/politica-de-privacidade") {
+    return <PrivacyPolicy />
+  }
+
+  const fichaMatch = window.location.pathname.match(FICHA_PATH_MATCH)
+  if (fichaMatch) {
+    return <FichaPage token={fichaMatch[1]} />
+  }
+
+  return <LandingPage />
 }
 
 export default App
