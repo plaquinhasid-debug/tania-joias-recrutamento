@@ -37,10 +37,11 @@ export function FichaForm({ onSubmitValues }: FichaFormProps) {
     formState: { errors },
   } = useForm<FichaAprovacaoPayload>({
     resolver: zodResolver(fichaAprovacaoSchema),
-    defaultValues: { tem_conjuge: false },
+    defaultValues: { tem_conjuge: false, conjuge_trabalha: false },
   })
 
   const temConjuge = watch("tem_conjuge")
+  const conjugeTrabalha = watch("conjuge_trabalha")
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
@@ -96,14 +97,39 @@ export function FichaForm({ onSubmitValues }: FichaFormProps) {
         </label>
 
         {temConjuge && (
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Nome dele" error={errors.conjuge_nome?.message}>
-              <Input {...register("conjuge_nome")} placeholder="Nome completo" />
-            </Field>
-            <Field label="Telefone dele" error={errors.conjuge_telefone?.message}>
-              <Input {...register("conjuge_telefone")} placeholder="(11) 91234-5678" />
-            </Field>
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Nome dele" error={errors.conjuge_nome?.message}>
+                <Input {...register("conjuge_nome")} placeholder="Nome completo" />
+              </Field>
+              <Field label="Telefone dele" error={errors.conjuge_telefone?.message}>
+                <Input {...register("conjuge_telefone")} placeholder="(11) 91234-5678" />
+              </Field>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-input"
+                {...register("conjuge_trabalha")}
+              />
+              Ele trabalha atualmente
+            </label>
+
+            {conjugeTrabalha && (
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Onde ele trabalha" error={errors.conjuge_trabalho_local?.message}>
+                  <Input {...register("conjuge_trabalho_local")} placeholder="Nome da empresa/local" />
+                </Field>
+                <Field
+                  label="Telefone do trabalho"
+                  error={errors.conjuge_trabalho_telefone?.message}
+                >
+                  <Input {...register("conjuge_trabalho_telefone")} placeholder="(11) 91234-5678" />
+                </Field>
+              </div>
+            )}
+          </>
         )}
       </div>
 

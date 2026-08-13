@@ -117,10 +117,20 @@ export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
           </a>
 
           {ficha.tem_conjuge && (
-            <CampoPreenchido
-              label="Marido/companheiro"
-              value={`${ficha.conjuge_nome} · ${ficha.conjuge_telefone}`}
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <CampoPreenchido
+                label="Marido/companheiro"
+                value={`${ficha.conjuge_nome} · ${ficha.conjuge_telefone}`}
+              />
+              <CampoPreenchido
+                label="Trabalho dele"
+                value={
+                  ficha.conjuge_trabalha
+                    ? `${ficha.conjuge_trabalho_local} · ${ficha.conjuge_trabalho_telefone}`
+                    : "Não trabalha atualmente"
+                }
+              />
+            </div>
           )}
 
           <div>

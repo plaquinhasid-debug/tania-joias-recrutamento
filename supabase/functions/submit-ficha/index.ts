@@ -76,12 +76,28 @@ Deno.serve(async (req) => {
   if (typeof temConjuge !== "boolean") {
     return jsonResponse({ error: "invalid_payload", field: "tem_conjuge" }, 400)
   }
+  let conjugeTrabalha = false
   if (temConjuge) {
     if (typeof body.conjuge_nome !== "string" || !body.conjuge_nome.trim()) {
       return jsonResponse({ error: "invalid_payload", field: "conjuge_nome" }, 400)
     }
     if (typeof body.conjuge_telefone !== "string" || !body.conjuge_telefone.trim()) {
       return jsonResponse({ error: "invalid_payload", field: "conjuge_telefone" }, 400)
+    }
+    if (typeof body.conjuge_trabalha !== "boolean") {
+      return jsonResponse({ error: "invalid_payload", field: "conjuge_trabalha" }, 400)
+    }
+    conjugeTrabalha = body.conjuge_trabalha
+    if (conjugeTrabalha) {
+      if (typeof body.conjuge_trabalho_local !== "string" || !body.conjuge_trabalho_local.trim()) {
+        return jsonResponse({ error: "invalid_payload", field: "conjuge_trabalho_local" }, 400)
+      }
+      if (
+        typeof body.conjuge_trabalho_telefone !== "string" ||
+        !body.conjuge_trabalho_telefone.trim()
+      ) {
+        return jsonResponse({ error: "invalid_payload", field: "conjuge_trabalho_telefone" }, 400)
+      }
     }
   }
 
@@ -114,6 +130,9 @@ Deno.serve(async (req) => {
     tem_conjuge: temConjuge,
     conjuge_nome: temConjuge ? body.conjuge_nome : null,
     conjuge_telefone: temConjuge ? body.conjuge_telefone : null,
+    conjuge_trabalha: temConjuge ? conjugeTrabalha : null,
+    conjuge_trabalho_local: temConjuge && conjugeTrabalha ? body.conjuge_trabalho_local : null,
+    conjuge_trabalho_telefone: temConjuge && conjugeTrabalha ? body.conjuge_trabalho_telefone : null,
     ref1_nome: body.ref1_nome,
     ref1_telefone: body.ref1_telefone,
     ref2_nome: body.ref2_nome,

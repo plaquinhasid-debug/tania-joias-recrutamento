@@ -157,31 +157,59 @@ export type SofiaConfigResponse = z.infer<typeof sofiaConfigResponseSchema>
  * duplicação do resto deste arquivo, já que Edge Functions não importam
  * `@tania-joias/shared`).
  */
-export const fichaAprovacaoSchema = z.object({
-  endereco_rua: z.string().trim().min(1, "Informe a rua"),
-  endereco_numero: z.string().trim().min(1, "Informe o número"),
-  endereco_bairro: z.string().trim().min(1, "Informe o bairro"),
-  endereco_cidade: z.string().trim().min(1, "Informe a cidade"),
-  endereco_cep: z.string().trim().min(1, "Informe o CEP"),
+export const fichaAprovacaoSchema = z
+  .object({
+    endereco_rua: z.string().trim().min(1, "Informe a rua"),
+    endereco_numero: z.string().trim().min(1, "Informe o número"),
+    endereco_bairro: z.string().trim().min(1, "Informe o bairro"),
+    endereco_cidade: z.string().trim().min(1, "Informe a cidade"),
+    endereco_cep: z.string().trim().min(1, "Informe o CEP"),
 
-  nome_pai: z.string().trim().min(1, "Informe o nome do pai"),
-  nome_mae: z.string().trim().min(1, "Informe o nome da mãe"),
+    nome_pai: z.string().trim().min(1, "Informe o nome do pai"),
+    nome_mae: z.string().trim().min(1, "Informe o nome da mãe"),
 
-  tem_conjuge: z.boolean(),
-  conjuge_nome: z.string().trim().optional(),
-  conjuge_telefone: z.string().trim().optional(),
+    tem_conjuge: z.boolean(),
+    conjuge_nome: z.string().trim().optional(),
+    conjuge_telefone: z.string().trim().optional(),
+    // Contato extra pra localizar a revendedora caso ela suma — só faz
+    // sentido perguntar quando `tem_conjuge` é true.
+    conjuge_trabalha: z.boolean().optional(),
+    conjuge_trabalho_local: z.string().trim().optional(),
+    conjuge_trabalho_telefone: z.string().trim().optional(),
 
-  ref1_nome: z.string().trim().min(1, "Informe o nome"),
-  ref1_telefone: z.string().trim().min(1, "Informe o telefone"),
-  ref2_nome: z.string().trim().min(1, "Informe o nome"),
-  ref2_telefone: z.string().trim().min(1, "Informe o telefone"),
-  ref3_nome: z.string().trim().min(1, "Informe o nome"),
-  ref3_telefone: z.string().trim().min(1, "Informe o telefone"),
+    ref1_nome: z.string().trim().min(1, "Informe o nome"),
+    ref1_telefone: z.string().trim().min(1, "Informe o telefone"),
+    ref2_nome: z.string().trim().min(1, "Informe o nome"),
+    ref2_telefone: z.string().trim().min(1, "Informe o telefone"),
+    ref3_nome: z.string().trim().min(1, "Informe o nome"),
+    ref3_telefone: z.string().trim().min(1, "Informe o telefone"),
 
-  ref_comercial_o_que_vende: z.string().trim().min(1, "Conte o que você vende"),
-  ref_comercial_nome: z.string().trim().min(1, "Informe o nome"),
-  ref_comercial_telefone: z.string().trim().min(1, "Informe o telefone"),
-})
+    ref_comercial_o_que_vende: z.string().trim().min(1, "Conte o que você vende"),
+    ref_comercial_nome: z.string().trim().min(1, "Informe o nome"),
+    ref_comercial_telefone: z.string().trim().min(1, "Informe o telefone"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tem_conjuge && !data.conjuge_nome?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["conjuge_nome"], message: "Informe o nome dele" })
+    }
+    if (data.tem_conjuge && !data.conjuge_telefone?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["conjuge_telefone"], message: "Informe o telefone dele" })
+    }
+    if (data.tem_conjuge && data.conjuge_trabalha && !data.conjuge_trabalho_local?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["conjuge_trabalho_local"],
+        message: "Informe onde ele trabalha",
+      })
+    }
+    if (data.tem_conjuge && data.conjuge_trabalha && !data.conjuge_trabalho_telefone?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["conjuge_trabalho_telefone"],
+        message: "Informe o telefone do trabalho",
+      })
+    }
+  })
 export type FichaAprovacaoPayload = z.infer<typeof fichaAprovacaoSchema>
 
 /** Resposta da Edge Function `get-ficha` (duplicada manualmente do lado dela, mesma convenção do resto deste arquivo). */

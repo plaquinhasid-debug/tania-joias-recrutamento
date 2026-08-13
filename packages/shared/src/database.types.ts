@@ -374,6 +374,9 @@ export type Database = {
         Row: {
           conjuge_nome: string | null
           conjuge_telefone: string | null
+          conjuge_trabalha: boolean | null
+          conjuge_trabalho_local: string | null
+          conjuge_trabalho_telefone: string | null
           criado_em: string
           endereco_bairro: string | null
           endereco_cep: string | null
@@ -400,6 +403,9 @@ export type Database = {
         Insert: {
           conjuge_nome?: string | null
           conjuge_telefone?: string | null
+          conjuge_trabalha?: boolean | null
+          conjuge_trabalho_local?: string | null
+          conjuge_trabalho_telefone?: string | null
           criado_em?: string
           endereco_bairro?: string | null
           endereco_cep?: string | null
@@ -426,6 +432,9 @@ export type Database = {
         Update: {
           conjuge_nome?: string | null
           conjuge_telefone?: string | null
+          conjuge_trabalha?: boolean | null
+          conjuge_trabalho_local?: string | null
+          conjuge_trabalho_telefone?: string | null
           criado_em?: string
           endereco_bairro?: string | null
           endereco_cep?: string | null
