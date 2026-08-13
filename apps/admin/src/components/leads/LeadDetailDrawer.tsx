@@ -194,7 +194,12 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
 
                   <Separator />
 
-                  <FichaAprovacaoSection leadId={lead.id} />
+                  <FichaAprovacaoSection
+                    leadId={lead.id}
+                    leadNome={lead.nome}
+                    leadTelefone={lead.telefone}
+                    leadWhatsapp={lead.whatsapp}
+                  />
                 </>
               )}
 

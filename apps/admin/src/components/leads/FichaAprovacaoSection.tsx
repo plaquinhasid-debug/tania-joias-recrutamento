@@ -1,15 +1,24 @@
 import { toast } from "sonner"
-import { Copy, Loader2, MapPin } from "lucide-react"
+import { Copy, Loader2, MapPin, MessageCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fichaLinkUrl, useGenerateFichaLink, useLeadFicha } from "@/hooks/useLeadFicha"
-import { formatDateTime } from "@/lib/format"
+import { formatDateTime, whatsappLinkWithMessage } from "@/lib/format"
 
 interface FichaAprovacaoSectionProps {
   leadId: string
+  leadNome: string
+  leadTelefone: string
+  leadWhatsapp: boolean | null
+}
+
+/** Mensagem amigável explicando o link da Ficha — a candidata precisa entender que é pra clicar e preencher, não só receber um link solto. */
+function mensagemFicha(nome: string, token: string): string {
+  const primeiroNome = nome.trim().split(/\s+/)[0] ?? ""
+  return `Oi, ${primeiroNome}! 🌸\n\nVocê passou pra 2ª etapa do cadastro! Pra liberar seu Mostruário, é só clicar no link abaixo e preencher rapidinho sua Ficha de Aprovação:\n\n${fichaLinkUrl(token)}\n\nQualquer dúvida, é só chamar aqui! 💛`
 }
 
 function CampoPreenchido({ label, value }: { label: string; value: string | null }) {
@@ -40,7 +49,12 @@ function googleMapsUrl(ficha: {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`
 }
 
-export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
+export function FichaAprovacaoSection({
+  leadId,
+  leadNome,
+  leadTelefone,
+  leadWhatsapp,
+}: FichaAprovacaoSectionProps) {
   const { data: ficha, isLoading } = useLeadFicha(leadId)
   const generateLink = useGenerateFichaLink()
 
@@ -89,8 +103,24 @@ export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
               Copiar
             </Button>
           </div>
+          <Button
+            size="sm"
+            variant="gold"
+            className="w-full"
+            disabled={!leadWhatsapp}
+            onClick={() => {
+              const link = whatsappLinkWithMessage(
+                leadTelefone,
+                mensagemFicha(leadNome, ficha.token),
+              )
+              if (link) window.open(link, "_blank", "noopener,noreferrer")
+            }}
+          >
+            <MessageCircle className="size-3.5" />
+            Mandar pelo WhatsApp
+          </Button>
           <p className="text-xs text-muted-foreground">
-            Cole esse link na conversa do WhatsApp com a candidata.
+            Abre o WhatsApp já com o link e uma mensagem explicando o próximo passo.
           </p>
         </div>
       ) : (
