@@ -26,7 +26,7 @@ export const LEAD_STATUS_COLOR: Record<LeadStatus, string> = {
 // supabase/functions/finalize-candidate/index.ts). Controle manual da
 // equipe, adicional ao `status` que já existia.
 export const ETAPA_POS_APROVACAO_LABEL: Record<EtapaPosAprovacao, string> = {
-  contatada: "Contatada",
+  contatada: "Ficha enviada",
   confirmada: "Confirmada",
   ativa: "Ativa",
   desistiu: "Desistiu",

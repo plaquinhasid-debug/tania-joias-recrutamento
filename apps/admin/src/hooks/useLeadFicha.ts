@@ -46,7 +46,7 @@ export function useGenerateFichaLink() {
         .single()
       if (error) throw error
 
-      // Avança o card pra "Contatada" no Kanban sozinho — só quando ela
+      // Avança o card pra "Ficha enviada" no Kanban sozinho — só quando ela
       // ainda estava parada em "Aprovada" (`.is(..., null)` evita empurrar
       // pra trás uma lead que já tinha avançado mais, ex.: se o link for
       // gerado de novo por engano).
