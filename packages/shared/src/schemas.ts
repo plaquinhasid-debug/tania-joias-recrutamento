@@ -148,3 +148,46 @@ export const sofiaConfigResponseSchema = z.object({
   conducao_natural_modo: naturalConversationModeSchema.optional(),
 })
 export type SofiaConfigResponse = z.infer<typeof sofiaConfigResponseSchema>
+
+/**
+ * Ficha de Aprovação — preenchida pela própria candidata via link único
+ * (`/ficha/:token` na Landing), depois de aprovada. Validado no cliente
+ * (`react-hook-form` + este schema) e de novo no servidor (Edge Function
+ * `submit-ficha`, que replica esta forma manualmente — mesma convenção de
+ * duplicação do resto deste arquivo, já que Edge Functions não importam
+ * `@tania-joias/shared`).
+ */
+export const fichaAprovacaoSchema = z.object({
+  endereco_rua: z.string().trim().min(1, "Informe a rua"),
+  endereco_numero: z.string().trim().min(1, "Informe o número"),
+  endereco_bairro: z.string().trim().min(1, "Informe o bairro"),
+  endereco_cidade: z.string().trim().min(1, "Informe a cidade"),
+  endereco_cep: z.string().trim().min(1, "Informe o CEP"),
+
+  nome_pai: z.string().trim().min(1, "Informe o nome do pai"),
+  nome_mae: z.string().trim().min(1, "Informe o nome da mãe"),
+
+  tem_conjuge: z.boolean(),
+  conjuge_nome: z.string().trim().optional(),
+  conjuge_telefone: z.string().trim().optional(),
+
+  ref1_nome: z.string().trim().min(1, "Informe o nome"),
+  ref1_telefone: z.string().trim().min(1, "Informe o telefone"),
+  ref2_nome: z.string().trim().min(1, "Informe o nome"),
+  ref2_telefone: z.string().trim().min(1, "Informe o telefone"),
+  ref3_nome: z.string().trim().min(1, "Informe o nome"),
+  ref3_telefone: z.string().trim().min(1, "Informe o telefone"),
+
+  ref_comercial_o_que_vende: z.string().trim().min(1, "Conte o que você vende"),
+  ref_comercial_nome: z.string().trim().min(1, "Informe o nome"),
+  ref_comercial_telefone: z.string().trim().min(1, "Informe o telefone"),
+})
+export type FichaAprovacaoPayload = z.infer<typeof fichaAprovacaoSchema>
+
+/** Resposta da Edge Function `get-ficha` (duplicada manualmente do lado dela, mesma convenção do resto deste arquivo). */
+export const getFichaResponseSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("invalido") }),
+  z.object({ status: z.literal("preenchida") }),
+  z.object({ status: z.literal("pendente"), nome: z.string() }),
+])
+export type GetFichaResponse = z.infer<typeof getFichaResponseSchema>

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
+import { FichaAprovacaoSection } from "@/components/leads/FichaAprovacaoSection"
 import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { IprBreakdown } from "@/components/leads/IprBreakdown"
@@ -190,6 +191,10 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
                         : "Aprovada — ainda não avançou (mova no Kanban)"}
                     </p>
                   </section>
+
+                  <Separator />
+
+                  <FichaAprovacaoSection leadId={lead.id} />
                 </>
               )}
 

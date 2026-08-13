@@ -7,6 +7,7 @@ export type Campaign = Tables<"campaigns">
 export type LogEntry = Tables<"logs">
 export type Setting = Tables<"settings">
 export type Profile = Tables<"profiles">
+export type LeadFicha = Tables<"leads_ficha">
 
 /** Formato do valor da linha `settings` com chave `cidades_atendidas`. */
 export interface CidadesAtendidasValue {

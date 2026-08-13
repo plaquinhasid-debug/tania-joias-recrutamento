@@ -370,6 +370,95 @@ export type Database = {
           },
         ]
       }
+      leads_ficha: {
+        Row: {
+          conjuge_nome: string | null
+          conjuge_telefone: string | null
+          criado_em: string
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_numero: string | null
+          endereco_rua: string | null
+          id: string
+          lead_id: string
+          nome_mae: string | null
+          nome_pai: string | null
+          preenchido_em: string | null
+          ref_comercial_nome: string | null
+          ref_comercial_o_que_vende: string | null
+          ref_comercial_telefone: string | null
+          ref1_nome: string | null
+          ref1_telefone: string | null
+          ref2_nome: string | null
+          ref2_telefone: string | null
+          ref3_nome: string | null
+          ref3_telefone: string | null
+          tem_conjuge: boolean | null
+          token: string
+        }
+        Insert: {
+          conjuge_nome?: string | null
+          conjuge_telefone?: string | null
+          criado_em?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_numero?: string | null
+          endereco_rua?: string | null
+          id?: string
+          lead_id: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          preenchido_em?: string | null
+          ref_comercial_nome?: string | null
+          ref_comercial_o_que_vende?: string | null
+          ref_comercial_telefone?: string | null
+          ref1_nome?: string | null
+          ref1_telefone?: string | null
+          ref2_nome?: string | null
+          ref2_telefone?: string | null
+          ref3_nome?: string | null
+          ref3_telefone?: string | null
+          tem_conjuge?: boolean | null
+          token?: string
+        }
+        Update: {
+          conjuge_nome?: string | null
+          conjuge_telefone?: string | null
+          criado_em?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_numero?: string | null
+          endereco_rua?: string | null
+          id?: string
+          lead_id?: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          preenchido_em?: string | null
+          ref_comercial_nome?: string | null
+          ref_comercial_o_que_vende?: string | null
+          ref_comercial_telefone?: string | null
+          ref1_nome?: string | null
+          ref1_telefone?: string | null
+          ref2_nome?: string | null
+          ref2_telefone?: string | null
+          ref3_nome?: string | null
+          ref3_telefone?: string | null
+          tem_conjuge?: boolean | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_ficha_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs: {
         Row: {
           campanha: string | null

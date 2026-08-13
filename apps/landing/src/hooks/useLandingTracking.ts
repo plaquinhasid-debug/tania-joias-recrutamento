@@ -12,6 +12,10 @@ import type { UtmParams } from "@/lib/tracking"
  */
 export function useLandingTracking(sessionId: string, utm: UtmParams): void {
   useEffect(() => {
+    // `/ficha/:token` é uma página pós-aprovação separada, não o topo do
+    // funil — não deve contar como `landing_view`/`ad_click`.
+    if (window.location.pathname.startsWith("/ficha/")) return
+
     if (!hasLoggedOnce("landing_view")) {
       markLoggedOnce("landing_view")
       void logEvent({

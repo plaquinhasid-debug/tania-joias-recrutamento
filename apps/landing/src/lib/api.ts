@@ -2,10 +2,13 @@ import { supabase } from "@/lib/supabase"
 import type { SofiaAnswers } from "@/types/sofia"
 import {
   finalizeCandidateResponseSchema,
+  getFichaResponseSchema,
   sofiaConfigResponseSchema,
   type Database,
+  type FichaAprovacaoPayload,
   type FinalizeCandidatePayload,
   type FinalizeCandidateResponse,
+  type GetFichaResponse,
   type NaturalConversationModeValue,
 } from "@tania-joias/shared"
 
@@ -211,4 +214,23 @@ export async function finalizeCandidate(
   if (error) throw error
 
   return finalizeCandidateResponseSchema.parse(data)
+}
+
+/**
+ * Página pública `/ficha/:token` — checa se o link é válido, já foi
+ * preenchido, ou está pendente. Pode lançar (a página trata o erro com uma
+ * tela de "não deu pra carregar, tenta de novo").
+ */
+export async function getFicha(token: string): Promise<GetFichaResponse> {
+  const { data, error } = await supabase.functions.invoke("get-ficha", { body: { token } })
+  if (error) throw error
+  return getFichaResponseSchema.parse(data)
+}
+
+/** Envia a Ficha de Aprovação preenchida. Pode lançar — a página trata o erro. */
+export async function submitFicha(token: string, payload: FichaAprovacaoPayload): Promise<void> {
+  const { error } = await supabase.functions.invoke("submit-ficha", {
+    body: { token, ...payload },
+  })
+  if (error) throw error
 }

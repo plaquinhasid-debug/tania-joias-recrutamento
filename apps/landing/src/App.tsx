@@ -10,9 +10,15 @@ import { Hero } from "@/components/sections/Hero"
 import { QuantoPossoGanhar } from "@/components/sections/QuantoPossoGanhar"
 import { QuemSomos } from "@/components/sections/QuemSomos"
 import { SofiaAssistant } from "@/components/sofia/SofiaAssistant"
+import { FichaPage } from "@/pages/FichaPage"
 import { useLandingTracking } from "@/hooks/useLandingTracking"
 import { useSessionId } from "@/hooks/useSessionId"
 import { useUtmParams } from "@/hooks/useUtmParams"
+
+// `/ficha/:token` é uma página pública separada (formulário pós-aprovação,
+// sem IA/chat) — sem router de verdade no projeto, então o desvio é feito
+// aqui mesmo, olhando a URL antes de montar a Landing normal.
+const FICHA_PATH_MATCH = /^\/ficha\/([^/]+)\/?$/
 
 function App() {
   const [sofiaOpen, setSofiaOpen] = useState(false)
@@ -22,6 +28,11 @@ function App() {
   useLandingTracking(sessionId, utm)
 
   const openSofia = () => setSofiaOpen(true)
+
+  const fichaMatch = window.location.pathname.match(FICHA_PATH_MATCH)
+  if (fichaMatch) {
+    return <FichaPage token={fichaMatch[1]} />
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
