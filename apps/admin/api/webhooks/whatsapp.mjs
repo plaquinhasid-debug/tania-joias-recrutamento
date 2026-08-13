@@ -77,7 +77,7 @@ function supabaseHeaders(prefer) {
 }
 
 async function supabaseRequest(path, options = {}) {
-  const baseUrl = process.env.SUPABASE_URL;
+  const baseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!baseUrl || !key) throw new Error('Supabase do webhook nÃ£o configurado');
 
