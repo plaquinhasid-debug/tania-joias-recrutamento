@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Radar } from "lucide-react"
 
 import { PageHeader } from "@/components/common/PageHeader"
@@ -7,12 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { RadarFunnelChart } from "@/components/radar/RadarFunnelChart"
 import { RadarStepsList } from "@/components/radar/RadarStepsList"
-import { useRadarFunil } from "@/hooks/useRadarFunil"
+import { RadarFilters } from "@/components/radar/RadarFilters"
+import { DEFAULT_RADAR_FILTERS, useRadarFunil, type RadarFiltersState } from "@/hooks/useRadarFunil"
 
 export default function RadarPage() {
-  const { data: steps, isLoading, isError, refetch } = useRadarFunil()
+  const [filters, setFilters] = React.useState<RadarFiltersState>(DEFAULT_RADAR_FILTERS)
+  const { data: steps, isLoading, isError, refetch } = useRadarFunil(filters)
 
   const totalEvents = steps?.reduce((acc, step) => acc + step.total, 0) ?? 0
+  const hasActiveFilters = filters.dateFrom !== null || filters.dateTo !== null
 
   return (
     <div>
@@ -20,6 +24,8 @@ export default function RadarPage() {
         title="Radar da Sofia"
         description="Acompanhe, em tempo real, cada etapa da jornada da candidata na conversa com a Sofia."
       />
+
+      <RadarFilters filters={filters} onChange={setFilters} />
 
       {isError && <ErrorState onRetry={() => refetch()} />}
 
@@ -30,8 +36,16 @@ export default function RadarPage() {
           ) : totalEvents === 0 ? (
             <EmptyState
               icon={Radar}
-              title="Ainda não há eventos registrados"
-              description="Assim que a Landing Page começar a gerar tráfego e conversas, o funil aparece aqui."
+              title={
+                hasActiveFilters
+                  ? "Nenhum evento no período selecionado"
+                  : "Ainda não há eventos registrados"
+              }
+              description={
+                hasActiveFilters
+                  ? "Tente ampliar o período ou limpar o filtro de data."
+                  : "Assim que a Landing Page começar a gerar tráfego e conversas, o funil aparece aqui."
+              }
             />
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

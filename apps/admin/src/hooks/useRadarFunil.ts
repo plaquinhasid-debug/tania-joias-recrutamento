@@ -11,8 +11,27 @@ export interface RadarStep {
   conversaoDoInicio: number
 }
 
-async function fetchRadarFunil(): Promise<RadarStep[]> {
-  const { data, error } = await supabase.from("logs").select("tipo_evento")
+export interface RadarFiltersState {
+  dateFrom: string | null
+  dateTo: string | null
+}
+
+export const DEFAULT_RADAR_FILTERS: RadarFiltersState = {
+  dateFrom: null,
+  dateTo: null,
+}
+
+async function fetchRadarFunil(filters: RadarFiltersState): Promise<RadarStep[]> {
+  let query = supabase.from("logs").select("tipo_evento")
+
+  if (filters.dateFrom) {
+    query = query.gte("created_at", filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    query = query.lte("created_at", `${filters.dateTo}T23:59:59.999`)
+  }
+
+  const { data, error } = await query
   if (error) throw error
 
   const counts = new Map<string, number>()
@@ -36,10 +55,10 @@ async function fetchRadarFunil(): Promise<RadarStep[]> {
   })
 }
 
-export function useRadarFunil() {
+export function useRadarFunil(filters: RadarFiltersState = DEFAULT_RADAR_FILTERS) {
   return useQuery({
-    queryKey: ["radar-funil"],
-    queryFn: fetchRadarFunil,
+    queryKey: ["radar-funil", filters],
+    queryFn: () => fetchRadarFunil(filters),
     staleTime: 30_000,
   })
 }
