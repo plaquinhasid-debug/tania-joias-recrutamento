@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+// Executado no servidor; as credenciais permanecem protegidas nas variaveis da Vercel.
+
 export const config = {
   api: { bodyParser: false },
 };
