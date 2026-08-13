@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
 import { FichaAprovacaoSection } from "@/components/leads/FichaAprovacaoSection"
+import { TaniaAprovacaoSection } from "@/components/leads/TaniaAprovacaoSection"
 import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { IprBreakdown } from "@/components/leads/IprBreakdown"
@@ -51,6 +52,11 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   }, [lead?.id, lead?.observacoes])
 
   const observacoesDirty = (lead?.observacoes ?? "") !== observacoes
+
+  // Mesmo resumo que a Sofia já escreveu sobre a candidata, reaproveitado na
+  // mensagem final pra Tania — cai no resumo determinístico se a análise
+  // expandida não estiver disponível.
+  const resumoParaMensagem = analysis?.resumo_comercial || lead?.resumo_ia || ""
 
   async function handleStatusChange(status: "aprovada" | "reprovada") {
     if (!lead) return
@@ -181,6 +187,22 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
                     leadTelefone={lead.telefone}
                     leadWhatsapp={lead.whatsapp}
                   />
+
+                  {(lead.etapa_pos_aprovacao === "confirmada" ||
+                    lead.etapa_pos_aprovacao === "aguardando_tania") && (
+                    <>
+                      <Separator />
+                      <TaniaAprovacaoSection
+                        leadId={lead.id}
+                        leadNome={lead.nome}
+                        leadCidade={lead.cidade}
+                        leadTelefone={lead.telefone}
+                        leadEtapa={lead.etapa_pos_aprovacao}
+                        leadPerfilComercial={lead.perfil_comercial}
+                        resumoParaMensagem={resumoParaMensagem}
+                      />
+                    </>
+                  )}
                 </>
               )}
 

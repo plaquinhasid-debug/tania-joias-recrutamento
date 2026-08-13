@@ -28,6 +28,7 @@ export const LEAD_STATUS_COLOR: Record<LeadStatus, string> = {
 export const ETAPA_POS_APROVACAO_LABEL: Record<EtapaPosAprovacao, string> = {
   contatada: "Ficha enviada",
   confirmada: "Confirmada",
+  aguardando_tania: "Aguardando aprovação da Tania",
   ativa: "Ativa",
   desistiu: "Desistiu",
 }
@@ -35,6 +36,7 @@ export const ETAPA_POS_APROVACAO_LABEL: Record<EtapaPosAprovacao, string> = {
 export const ETAPA_POS_APROVACAO_COLOR: Record<EtapaPosAprovacao, string> = {
   contatada: "#97C459",
   confirmada: "#639922",
+  aguardando_tania: "#C6A664",
   ativa: "#3B6D11",
   desistiu: "#D85A30",
 }
@@ -111,6 +113,7 @@ export type PipelineColumnKey =
   | "aprovada"
   | "contatada"
   | "confirmada"
+  | "aguardando_tania"
   | "ativa"
   | "desistiu"
   | "reprovada"
@@ -127,6 +130,11 @@ export const PIPELINE_COLUMNS: PipelineColumn[] = [
   { key: "aprovada", label: LEAD_STATUS_LABEL.aprovada, color: LEAD_STATUS_COLOR.aprovada },
   { key: "contatada", label: ETAPA_POS_APROVACAO_LABEL.contatada, color: ETAPA_POS_APROVACAO_COLOR.contatada },
   { key: "confirmada", label: ETAPA_POS_APROVACAO_LABEL.confirmada, color: ETAPA_POS_APROVACAO_COLOR.confirmada },
+  {
+    key: "aguardando_tania",
+    label: ETAPA_POS_APROVACAO_LABEL.aguardando_tania,
+    color: ETAPA_POS_APROVACAO_COLOR.aguardando_tania,
+  },
   { key: "ativa", label: ETAPA_POS_APROVACAO_LABEL.ativa, color: ETAPA_POS_APROVACAO_COLOR.ativa },
   { key: "desistiu", label: ETAPA_POS_APROVACAO_LABEL.desistiu, color: ETAPA_POS_APROVACAO_COLOR.desistiu },
   { key: "reprovada", label: LEAD_STATUS_LABEL.reprovada, color: LEAD_STATUS_COLOR.reprovada },
@@ -152,6 +160,7 @@ export function patchForPipelineColumn(
   switch (key) {
     case "contatada":
     case "confirmada":
+    case "aguardando_tania":
     case "ativa":
     case "desistiu":
       return { status: "aprovada", etapa_pos_aprovacao: key }

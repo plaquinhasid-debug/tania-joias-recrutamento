@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fichaLinkUrl, useGenerateFichaLink, useLeadFicha } from "@/hooks/useLeadFicha"
-import { formatDateTime, whatsappLinkWithMessage } from "@/lib/format"
+import { formatDateTime, googleMapsUrl, whatsappLinkWithMessage } from "@/lib/format"
 
 interface FichaAprovacaoSectionProps {
   leadId: string
@@ -28,25 +28,6 @@ function CampoPreenchido({ label, value }: { label: string; value: string | null
       <p className="mt-0.5 text-sm text-foreground">{value || "—"}</p>
     </div>
   )
-}
-
-function googleMapsUrl(ficha: {
-  endereco_rua: string | null
-  endereco_numero: string | null
-  endereco_bairro: string | null
-  endereco_cidade: string | null
-  endereco_cep: string | null
-}): string {
-  const endereco = [
-    ficha.endereco_rua,
-    ficha.endereco_numero,
-    ficha.endereco_bairro,
-    ficha.endereco_cidade,
-    ficha.endereco_cep,
-  ]
-    .filter(Boolean)
-    .join(", ")
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`
 }
 
 export function FichaAprovacaoSection({
@@ -145,7 +126,7 @@ export function FichaAprovacaoSection({
           </div>
 
           <a
-            href={googleMapsUrl(ficha)}
+            href={googleMapsUrl(ficha) ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-gold-foreground hover:underline"

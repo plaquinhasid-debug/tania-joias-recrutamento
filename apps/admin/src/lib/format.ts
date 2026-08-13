@@ -62,3 +62,21 @@ export function whatsappLinkWithMessage(
   const encoded = encodeURIComponent(message)
   return `${link}?text=${encoded}`
 }
+
+export function googleMapsUrl(endereco: {
+  endereco_rua: string | null
+  endereco_numero: string | null
+  endereco_bairro: string | null
+  endereco_cidade: string | null
+  endereco_cep: string | null
+}): string | null {
+  const partes = [
+    endereco.endereco_rua,
+    endereco.endereco_numero,
+    endereco.endereco_bairro,
+    endereco.endereco_cidade,
+    endereco.endereco_cep,
+  ].filter(Boolean)
+  if (partes.length === 0) return null
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partes.join(", "))}`
+}

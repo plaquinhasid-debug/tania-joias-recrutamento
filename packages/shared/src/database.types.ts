@@ -578,6 +578,7 @@ export type Database = {
       etapa_pos_aprovacao_enum:
         | "contatada"
         | "confirmada"
+        | "aguardando_tania"
         | "ativa"
         | "desistiu"
       evento_funil:
@@ -724,6 +725,7 @@ export const Constants = {
       etapa_pos_aprovacao_enum: [
         "contatada",
         "confirmada",
+        "aguardando_tania",
         "ativa",
         "desistiu",
       ],
