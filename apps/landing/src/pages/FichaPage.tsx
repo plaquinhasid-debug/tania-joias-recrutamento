@@ -136,6 +136,9 @@ export function FichaPage({ token }: FichaPageProps) {
         <p className="mt-1 text-sm text-muted-foreground">
           Pra finalizar seu cadastro, preencha as informações abaixo e envie.
         </p>
+        <p className="mt-3 rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold-foreground">
+          Os Mostruários são limitados — preencha e envie o quanto antes pra garantir o seu.
+        </p>
       </div>
       <FichaForm onSubmitValues={handleSubmit} />
     </Shell>
