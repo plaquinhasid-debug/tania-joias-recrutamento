@@ -399,6 +399,9 @@ export type Database = {
           ref3_telefone: string | null
           tem_conjuge: boolean | null
           token: string
+          trabalha_atualmente: boolean | null
+          trabalho_endereco: string | null
+          trabalho_telefone: string | null
         }
         Insert: {
           conjuge_nome?: string | null
@@ -428,6 +431,9 @@ export type Database = {
           ref3_telefone?: string | null
           tem_conjuge?: boolean | null
           token?: string
+          trabalha_atualmente?: boolean | null
+          trabalho_endereco?: string | null
+          trabalho_telefone?: string | null
         }
         Update: {
           conjuge_nome?: string | null
@@ -457,6 +463,9 @@ export type Database = {
           ref3_telefone?: string | null
           tem_conjuge?: boolean | null
           token?: string
+          trabalha_atualmente?: boolean | null
+          trabalho_endereco?: string | null
+          trabalho_telefone?: string | null
         }
         Relationships: [
           {

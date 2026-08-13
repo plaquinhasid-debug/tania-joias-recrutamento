@@ -37,11 +37,12 @@ export function FichaForm({ onSubmitValues }: FichaFormProps) {
     formState: { errors },
   } = useForm<FichaAprovacaoPayload>({
     resolver: zodResolver(fichaAprovacaoSchema),
-    defaultValues: { tem_conjuge: false, conjuge_trabalha: false },
+    defaultValues: { tem_conjuge: false, conjuge_trabalha: false, trabalha_atualmente: false },
   })
 
   const temConjuge = watch("tem_conjuge")
   const conjugeTrabalha = watch("conjuge_trabalha")
+  const trabalhaAtualmente = watch("trabalha_atualmente")
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
@@ -78,6 +79,30 @@ export function FichaForm({ onSubmitValues }: FichaFormProps) {
             <Input {...register("endereco_cidade")} placeholder="Cidade" />
           </Field>
         </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="font-display text-lg font-semibold text-foreground">Trabalho</h2>
+
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            className="size-4 rounded border-input"
+            {...register("trabalha_atualmente")}
+          />
+          Trabalho atualmente (além da revenda)
+        </label>
+
+        {trabalhaAtualmente && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Endereço do trabalho" error={errors.trabalho_endereco?.message}>
+              <Input {...register("trabalho_endereco")} placeholder="Rua, número, bairro" />
+            </Field>
+            <Field label="Telefone do trabalho" error={errors.trabalho_telefone?.message}>
+              <Input {...register("trabalho_telefone")} placeholder="(11) 91234-5678" />
+            </Field>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">

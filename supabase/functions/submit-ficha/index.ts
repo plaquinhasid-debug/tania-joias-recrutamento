@@ -72,6 +72,19 @@ Deno.serve(async (req) => {
     }
   }
 
+  const trabalhaAtualmente = body.trabalha_atualmente
+  if (typeof trabalhaAtualmente !== "boolean") {
+    return jsonResponse({ error: "invalid_payload", field: "trabalha_atualmente" }, 400)
+  }
+  if (trabalhaAtualmente) {
+    if (typeof body.trabalho_endereco !== "string" || !body.trabalho_endereco.trim()) {
+      return jsonResponse({ error: "invalid_payload", field: "trabalho_endereco" }, 400)
+    }
+    if (typeof body.trabalho_telefone !== "string" || !body.trabalho_telefone.trim()) {
+      return jsonResponse({ error: "invalid_payload", field: "trabalho_telefone" }, 400)
+    }
+  }
+
   const temConjuge = body.tem_conjuge
   if (typeof temConjuge !== "boolean") {
     return jsonResponse({ error: "invalid_payload", field: "tem_conjuge" }, 400)
@@ -127,6 +140,9 @@ Deno.serve(async (req) => {
     endereco_cep: body.endereco_cep,
     nome_pai: body.nome_pai,
     nome_mae: body.nome_mae,
+    trabalha_atualmente: trabalhaAtualmente,
+    trabalho_endereco: trabalhaAtualmente ? body.trabalho_endereco : null,
+    trabalho_telefone: trabalhaAtualmente ? body.trabalho_telefone : null,
     tem_conjuge: temConjuge,
     conjuge_nome: temConjuge ? body.conjuge_nome : null,
     conjuge_telefone: temConjuge ? body.conjuge_telefone : null,

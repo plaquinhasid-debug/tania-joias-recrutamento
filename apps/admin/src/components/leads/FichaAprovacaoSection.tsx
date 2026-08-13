@@ -104,6 +104,14 @@ export function FichaAprovacaoSection({ leadId }: FichaAprovacaoSectionProps) {
             <CampoPreenchido label="CEP" value={ficha.endereco_cep} />
             <CampoPreenchido label="Nome do pai" value={ficha.nome_pai} />
             <CampoPreenchido label="Nome da mãe" value={ficha.nome_mae} />
+            <CampoPreenchido
+              label="Trabalho"
+              value={
+                ficha.trabalha_atualmente
+                  ? `${ficha.trabalho_endereco} · ${ficha.trabalho_telefone}`
+                  : "Não trabalha atualmente"
+              }
+            />
           </div>
 
           <a

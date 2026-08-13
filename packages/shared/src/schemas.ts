@@ -168,6 +168,12 @@ export const fichaAprovacaoSchema = z
     nome_pai: z.string().trim().min(1, "Informe o nome do pai"),
     nome_mae: z.string().trim().min(1, "Informe o nome da mãe"),
 
+    // Contato extra pra localizar a revendedora caso ela suma — mesmo
+    // motivo dos campos de trabalho do companheiro logo abaixo.
+    trabalha_atualmente: z.boolean().optional(),
+    trabalho_endereco: z.string().trim().optional(),
+    trabalho_telefone: z.string().trim().optional(),
+
     tem_conjuge: z.boolean(),
     conjuge_nome: z.string().trim().optional(),
     conjuge_telefone: z.string().trim().optional(),
@@ -189,6 +195,20 @@ export const fichaAprovacaoSchema = z
     ref_comercial_telefone: z.string().trim().min(1, "Informe o telefone"),
   })
   .superRefine((data, ctx) => {
+    if (data.trabalha_atualmente && !data.trabalho_endereco?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["trabalho_endereco"],
+        message: "Informe o endereço do trabalho",
+      })
+    }
+    if (data.trabalha_atualmente && !data.trabalho_telefone?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["trabalho_telefone"],
+        message: "Informe o telefone do trabalho",
+      })
+    }
     if (data.tem_conjuge && !data.conjuge_nome?.trim()) {
       ctx.addIssue({ code: "custom", path: ["conjuge_nome"], message: "Informe o nome dele" })
     }
