@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
 
   const { data: ficha } = await supabase
     .from("leads_ficha")
-    .select("id, preenchido_em")
+    .select("id, lead_id, preenchido_em")
     .eq("token", token)
     .maybeSingle()
 
@@ -166,6 +166,21 @@ Deno.serve(async (req) => {
   if (updateError) {
     console.error("[submit-ficha] falha ao gravar", updateError)
     return jsonResponse({ error: "internal_error" }, 500)
+  }
+
+  // Avança o card pra "Confirmada" no Kanban sozinho — só quando ele ainda
+  // estava em "Ficha enviada" (`.eq(..., "contatada")` evita empurrar pra
+  // trás uma lead que já avançou mais, ex.: se o link fosse gerado de novo).
+  // Best-effort: a ficha já foi gravada com sucesso, então uma falha aqui
+  // não deve impedir a candidata de ver a confirmação de envio.
+  const { error: stageError } = await supabase
+    .from("leads")
+    .update({ etapa_pos_aprovacao: "confirmada" })
+    .eq("id", ficha.lead_id)
+    .eq("etapa_pos_aprovacao", "contatada")
+
+  if (stageError) {
+    console.error("[submit-ficha] falha ao avançar etapa no Kanban", stageError)
   }
 
   return jsonResponse({ ok: true })
