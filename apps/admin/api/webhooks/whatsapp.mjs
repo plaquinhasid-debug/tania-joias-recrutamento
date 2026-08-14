@@ -6,6 +6,47 @@ export const config = {
   api: { bodyParser: false },
 };
 
+// Numero pessoal da Tania (mesmo valor de TANIA_TELEFONE em
+// TaniaAprovacaoSection.tsx, aqui ja com o DDI 55 porque e assim que a Meta
+// manda o campo "from"). So mensagens desse numero podem decidir uma lead.
+const TANIA_TELEFONE = '5511967660123';
+
+const PALAVRAS_APROVACAO = ['sim', 'aprovado', 'aprovo', 'aprovar', 'pode'];
+const PALAVRAS_RECUSA = ['nao', 'recuso', 'recusa', 'recusar', 'nego', 'negar'];
+
+const MAPA_ACENTOS = {
+  a: 'áàâã',
+  e: 'éê',
+  i: 'í',
+  o: 'óôõ',
+  u: 'ú',
+  c: 'ç',
+};
+
+function removerAcentos(texto) {
+  let resultado = texto;
+  for (const [semAcento, comAcento] of Object.entries(MAPA_ACENTOS)) {
+    for (const letra of comAcento) {
+      resultado = resultado.split(letra).join(semAcento);
+    }
+  }
+  return resultado;
+}
+
+function normalizarTexto(texto) {
+  return removerAcentos((texto ?? '').toLowerCase());
+}
+
+function detectarDecisaoTania(texto) {
+  const palavras = normalizarTexto(texto)
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (palavras.some((palavra) => PALAVRAS_RECUSA.includes(palavra))) return 'recusou';
+  if (palavras.some((palavra) => PALAVRAS_APROVACAO.includes(palavra))) return 'aprovou';
+  return null;
+}
+
 function send(response, status, body) {
   response.status(status).setHeader('Content-Type', 'text/plain; charset=utf-8').send(body);
 }
@@ -162,6 +203,43 @@ async function sendAutomaticReply(to, replyToMessageId) {
   }
 }
 
+async function buscarLeadsAguardandoTania() {
+  const result = await supabaseRequest(
+    'leads?etapa_pos_aprovacao=eq.aguardando_tania&select=id,nome',
+  );
+  return result.json();
+}
+
+async function aplicarDecisaoTania(leadId, decisao) {
+  const etapa = decisao === 'aprovou' ? 'ativa' : 'desistiu';
+  await supabaseRequest(`leads?id=eq.${leadId}`, {
+    method: 'PATCH',
+    prefer: 'return=minimal',
+    body: JSON.stringify({ etapa_pos_aprovacao: etapa }),
+  });
+  return etapa;
+}
+
+// Só a Tania decide leads pelo WhatsApp, e só quando existe exatamente uma
+// candidata esperando (mensagem ambígua com 0 ou 2+ candidatas não decide
+// nada sozinha — fica pro clique manual no Admin).
+async function processarDecisaoTania(message) {
+  if (message.from !== TANIA_TELEFONE || message.type !== 'text') return;
+
+  const decisao = detectarDecisaoTania(message.text?.body);
+  if (!decisao) return;
+
+  const pendentes = await buscarLeadsAguardandoTania();
+  if (pendentes.length !== 1) {
+    console.info('[WhatsApp decisao Tania] ignorado, candidatas pendentes:', pendentes.length);
+    return;
+  }
+
+  const [lead] = pendentes;
+  const etapa = await aplicarDecisaoTania(lead.id, decisao);
+  console.info('[WhatsApp decisao Tania] aplicado', { leadId: lead.id, nome: lead.nome, etapa });
+}
+
 async function processPayload(payload) {
   for (const entry of payload.entry ?? []) {
     for (const change of entry.changes ?? []) {
@@ -171,6 +249,7 @@ async function processPayload(payload) {
         console.info('[WhatsApp storage]', { messageId: message.id, saved: isNew });
         if (isNew && message.type === 'text') {
           await sendAutomaticReply(message.from, message.id);
+          await processarDecisaoTania(message);
         }
       }
     }

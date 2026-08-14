@@ -24,6 +24,8 @@ import {
   type SavableNaturalConversationMode,
   useWhatsappAprovacaoAutomaticaAtiva,
   useSaveWhatsappAprovacaoAutomaticaAtiva,
+  useWhatsappNotificacaoTaniaAtiva,
+  useSaveWhatsappNotificacaoTaniaAtiva,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -84,6 +86,23 @@ export default function SettingsPage() {
         checked
           ? "Mensagem automática de aprovação ativada."
           : "Mensagem automática de aprovação desativada.",
+      )
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: notificacaoTaniaAtiva, isLoading: notificacaoTaniaLoading } =
+    useWhatsappNotificacaoTaniaAtiva()
+  const saveNotificacaoTania = useSaveWhatsappNotificacaoTaniaAtiva()
+
+  async function handleToggleNotificacaoTania(checked: boolean) {
+    try {
+      await saveNotificacaoTania.mutateAsync(checked)
+      toast.success(
+        checked
+          ? "Aviso automático pra Tania ativado."
+          : "Aviso automático pra Tania desativado.",
       )
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
@@ -270,6 +289,41 @@ export default function SettingsPage() {
                 checked={Boolean(whatsappAutomaticoAtiva)}
                 onCheckedChange={(checked) => void handleToggleWhatsappAutomatico(checked)}
                 disabled={saveWhatsappAutomatico.isPending}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>WhatsApp — Avisar a Tania quando a Ficha chega</CardTitle>
+          <CardDescription>
+            Quando ativado, assim que uma candidata preenche a Ficha de Aprovação, a Tania recebe
+            automaticamente o resumo (nome, perfil, localização) pelo WhatsApp oficial (BrilhoFlow
+            Atendimento) — sem precisar de ninguém clicar em "Enviar pra Tania" no Admin. Ela responde
+            "sim"/"não" na mesma conversa e o sistema decide sozinho. Se o envio falhar (ex.: fora da
+            janela de atendimento de 24h), a lead fica em "Confirmada" e o botão manual continua ali
+            como reserva.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {notificacaoTaniaLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="whatsapp-notificacao-tania-ativa">Aviso automático ativado</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A Tania precisa responder na conversa do número oficial, não na conversa pessoal de
+                  sempre — só ali o sistema consegue ler a resposta.
+                </p>
+              </div>
+              <Switch
+                id="whatsapp-notificacao-tania-ativa"
+                checked={Boolean(notificacaoTaniaAtiva)}
+                onCheckedChange={(checked) => void handleToggleNotificacaoTania(checked)}
+                disabled={saveNotificacaoTania.isPending}
               />
             </div>
           )}

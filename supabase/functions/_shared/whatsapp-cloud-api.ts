@@ -72,3 +72,48 @@ export async function sendWhatsappApprovalTemplate({
     throw new Error(`whatsapp_cloud_api_error: ${response.status} ${detail}`)
   }
 }
+
+export interface SendWhatsappFreeTextParams {
+  token: string
+  phoneNumberId: string
+  telefone: string
+  texto: string
+}
+
+/**
+ * Envia texto livre (sem template) via WhatsApp Cloud API. Só funciona
+ * dentro da janela de 24h de atendimento — exige que o destinatário tenha
+ * mandado uma mensagem pro número oficial recentemente. Fora dessa janela
+ * a Meta rejeita e esta função lança; o chamador deve tratar como
+ * best-effort e ter um caminho manual de reserva.
+ */
+export async function sendWhatsappFreeText({
+  token,
+  phoneNumberId,
+  telefone,
+  texto,
+}: SendWhatsappFreeTextParams): Promise<void> {
+  const to = normalizeBrazilPhone(telefone)
+
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { preview_url: false, body: texto },
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(`whatsapp_cloud_api_error: ${response.status} ${detail}`)
+  }
+}

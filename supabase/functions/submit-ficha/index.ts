@@ -14,6 +14,55 @@
 // ninguém pode reenviar ou sobrescrever uma ficha já enviada.
 import { createClient } from "npm:@supabase/supabase-js@2"
 
+import { sendWhatsappFreeText } from "../_shared/whatsapp-cloud-api.ts"
+
+// Mesmo número de TANIA_TELEFONE em TaniaAprovacaoSection.tsx (frontend),
+// já com o DDI 55 porque é assim que a Cloud API espera o destinatário.
+const TANIA_TELEFONE = "5511967660123"
+
+const PERFIL_COMERCIAL_LABEL: Record<string, string> = {
+  baixo: "Baixo",
+  medio: "Médio",
+  alto: "Alto",
+}
+
+function googleMapsUrl(endereco: {
+  endereco_rua: string
+  endereco_numero: string
+  endereco_bairro: string
+  endereco_cidade: string
+  endereco_cep: string
+}): string {
+  const partes = [
+    endereco.endereco_rua,
+    endereco.endereco_numero,
+    endereco.endereco_bairro,
+    endereco.endereco_cidade,
+    endereco.endereco_cep,
+  ].filter(Boolean)
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partes.join(", "))}`
+}
+
+function mensagemParaTania(
+  nome: string,
+  cidade: string | null,
+  telefone: string,
+  perfilLabel: string | null,
+  mapsUrl: string,
+  resumo: string,
+): string {
+  const linhas = [
+    `Oi Tania! A ${nome}${cidade ? ` (${cidade})` : ""} já foi aprovada pelo sistema e completou todo o cadastro — só está faltando sua aprovação final pra liberar o Mostruário pra ela.`,
+    "",
+    `📞 ${telefone}`,
+  ]
+  if (perfilLabel) linhas.push(`⭐ Potencial: ${perfilLabel}`)
+  linhas.push(`📍 ${mapsUrl}`)
+  if (resumo.trim()) linhas.push("", resumo.trim())
+  linhas.push("", "Pode confirmar?")
+  return linhas.join("\n")
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -181,6 +230,68 @@ Deno.serve(async (req) => {
 
   if (stageError) {
     console.error("[submit-ficha] falha ao avançar etapa no Kanban", stageError)
+  }
+
+  // Notifica a Tania automaticamente pelo WhatsApp oficial, se a flag
+  // estiver ligada. Best-effort e degrada com segurança: se o envio falhar
+  // (ex.: fora da janela de 24h de atendimento), a lead fica em "Confirmada"
+  // e o botão manual "Enviar pra Tania" no Admin continua disponível.
+  try {
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("valor")
+      .eq("chave", "whatsapp_notificacao_tania_ativa")
+      .maybeSingle()
+    const flagAtiva = Boolean((settingsRow?.valor as { ativa?: boolean } | undefined)?.ativa)
+
+    const whatsappToken = Deno.env.get("WHATSAPP_CLOUD_API_TOKEN")
+    const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+
+    if (flagAtiva && whatsappToken && phoneNumberId) {
+      const { data: lead } = await supabase
+        .from("leads")
+        .select("id, nome, telefone, cidade, perfil_comercial, resumo_ia")
+        .eq("id", ficha.lead_id)
+        .single()
+
+      if (lead) {
+        const { data: analysis } = await supabase
+          .from("ai_analysis")
+          .select("resumo_comercial")
+          .eq("lead_id", lead.id)
+          .maybeSingle()
+
+        const resumo = analysis?.resumo_comercial || lead.resumo_ia || ""
+        const perfilLabel = lead.perfil_comercial
+          ? PERFIL_COMERCIAL_LABEL[lead.perfil_comercial as string] ?? null
+          : null
+        const mapsUrl = googleMapsUrl({
+          endereco_rua: patch.endereco_rua as string,
+          endereco_numero: patch.endereco_numero as string,
+          endereco_bairro: patch.endereco_bairro as string,
+          endereco_cidade: patch.endereco_cidade as string,
+          endereco_cep: patch.endereco_cep as string,
+        })
+
+        await sendWhatsappFreeText({
+          token: whatsappToken,
+          phoneNumberId,
+          telefone: TANIA_TELEFONE,
+          texto: mensagemParaTania(lead.nome, lead.cidade, lead.telefone, perfilLabel, mapsUrl, resumo),
+        })
+
+        // Só avança pra "Aguardando aprovação da Tania" se a mensagem saiu —
+        // assim o botão manual "Enviar pra Tania" some do Admin exatamente
+        // quando ele deixa de ser necessário.
+        await supabase
+          .from("leads")
+          .update({ etapa_pos_aprovacao: "aguardando_tania" })
+          .eq("id", lead.id)
+          .eq("etapa_pos_aprovacao", "confirmada")
+      }
+    }
+  } catch (notifyError) {
+    console.error("[submit-ficha] falha ao notificar Tania por WhatsApp", notifyError)
   }
 
   return jsonResponse({ ok: true })

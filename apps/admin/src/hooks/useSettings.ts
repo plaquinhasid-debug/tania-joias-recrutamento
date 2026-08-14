@@ -252,3 +252,48 @@ export function useSaveWhatsappAprovacaoAutomaticaAtiva() {
     },
   })
 }
+
+const WHATSAPP_NOTIFICACAO_TANIA_ATIVA_KEY = "whatsapp_notificacao_tania_ativa"
+
+async function fetchWhatsappNotificacaoTaniaAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", WHATSAPP_NOTIFICACAO_TANIA_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useWhatsappNotificacaoTaniaAtiva() {
+  return useQuery({
+    queryKey: ["settings", WHATSAPP_NOTIFICACAO_TANIA_ATIVA_KEY],
+    queryFn: fetchWhatsappNotificacaoTaniaAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveWhatsappNotificacaoTaniaAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: WHATSAPP_NOTIFICACAO_TANIA_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            "Liga/desliga o aviso automático pra Tania via WhatsApp Cloud API (número oficial) assim que uma candidata preenche a Ficha de Aprovação. Se o envio falhar (ex.: fora da janela de 24h de atendimento), a lead fica em 'Confirmada' e o botão manual 'Enviar pra Tania' continua disponível. Default false — só liga depois de testar.",
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", WHATSAPP_NOTIFICACAO_TANIA_ATIVA_KEY], ativa)
+    },
+  })
+}
