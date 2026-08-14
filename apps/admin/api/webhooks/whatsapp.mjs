@@ -67,7 +67,7 @@ function summarize(payload) {
 }
 
 function supabaseHeaders(prefer) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
@@ -77,8 +77,8 @@ function supabaseHeaders(prefer) {
 }
 
 async function supabaseRequest(path, options = {}) {
-  const baseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const baseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim().replace(/\/$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!baseUrl || !key) throw new Error('Supabase do webhook nÃ£o configurado');
 
   const result = await fetch(`${baseUrl}/rest/v1/${path}`, {
