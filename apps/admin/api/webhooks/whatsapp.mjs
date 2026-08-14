@@ -168,6 +168,7 @@ async function processPayload(payload) {
       const value = change.value ?? {};
       for (const message of value.messages ?? []) {
         const isNew = await saveInboundMessage(message, value);
+        console.info('[WhatsApp storage]', { messageId: message.id, saved: isNew });
         if (isNew && message.type === 'text') {
           await sendAutomaticReply(message.from, message.id);
         }
