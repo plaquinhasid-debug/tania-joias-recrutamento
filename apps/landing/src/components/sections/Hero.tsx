@@ -1,5 +1,4 @@
 import { motion } from "framer-motion"
-import { Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -16,12 +15,7 @@ export function Hero({ onOpenSofia }: HeroProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
-            <Sparkles className="size-3.5" />
-            Vagas abertas para revendedoras
-          </span>
-
-          <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.1] text-foreground sm:text-5xl lg:text-6xl">
+          <h1 className="font-display text-4xl font-semibold leading-[1.1] text-foreground sm:text-5xl lg:text-6xl">
             Transforme seu tempo livre em renda extra revendendo semijoias.
           </h1>
 
@@ -34,7 +28,7 @@ export function Hero({ onOpenSofia }: HeroProps) {
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button size="lg" variant="gold" onClick={onOpenSofia} className="text-sm tracking-wide">
-              QUERO SER REVENDEDORA
+              QUERO COMEÇAR AGORA
             </Button>
             <a
               href="#como-funciona"

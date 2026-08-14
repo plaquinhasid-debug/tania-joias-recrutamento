@@ -1,9 +1,3 @@
-import { Button } from "@/components/ui/button"
-
-interface HeaderProps {
-  onOpenSofia: () => void
-}
-
 const NAV_LINKS = [
   { href: "#quem-somos", label: "Quem somos" },
   { href: "#como-funciona", label: "Como funciona" },
@@ -11,7 +5,7 @@ const NAV_LINKS = [
   { href: "#faq", label: "Dúvidas" },
 ]
 
-export function Header({ onOpenSofia }: HeaderProps) {
+export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -33,11 +27,6 @@ export function Header({ onOpenSofia }: HeaderProps) {
             </a>
           ))}
         </nav>
-
-        <Button variant="gold" size="sm" onClick={onOpenSofia} className="shrink-0 whitespace-nowrap">
-          <span className="hidden sm:inline">Quero ser revendedora</span>
-          <span className="sm:hidden">Cadastre-se</span>
-        </Button>
       </div>
     </header>
   )

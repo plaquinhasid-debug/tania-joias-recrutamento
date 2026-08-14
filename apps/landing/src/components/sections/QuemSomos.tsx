@@ -98,7 +98,7 @@ export function QuemSomos({ onOpenSofia }: QuemSomosProps) {
 
         <Reveal delay={0.25} className="mt-10 flex justify-center">
           <Button size="lg" variant="gold" onClick={onOpenSofia} className="text-sm tracking-wide">
-            QUERO SER REVENDEDORA
+            QUERO COMEÇAR AGORA
           </Button>
         </Reveal>
       </div>

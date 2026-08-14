@@ -32,7 +32,7 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header onOpenSofia={openSofia} />
+      <Header />
 
       <main>
         <Hero onOpenSofia={openSofia} />

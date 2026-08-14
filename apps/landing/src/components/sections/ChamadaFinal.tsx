@@ -26,7 +26,7 @@ export function ChamadaFinal({ onOpenSofia }: ChamadaFinalProps) {
             onClick={onOpenSofia}
             className="mt-9 text-sm tracking-wide"
           >
-            QUERO SER REVENDEDORA
+            QUERO COMEÇAR AGORA
           </Button>
         </Reveal>
       </div>
