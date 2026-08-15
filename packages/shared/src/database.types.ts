@@ -385,6 +385,7 @@ export type Database = {
           endereco_rua: string | null
           id: string
           lead_id: string
+          lembrete_enviado_em: string | null
           nome_mae: string | null
           nome_pai: string | null
           preenchido_em: string | null
@@ -418,6 +419,7 @@ export type Database = {
           endereco_rua?: string | null
           id?: string
           lead_id: string
+          lembrete_enviado_em?: string | null
           nome_mae?: string | null
           nome_pai?: string | null
           preenchido_em?: string | null
@@ -451,6 +453,7 @@ export type Database = {
           endereco_rua?: string | null
           id?: string
           lead_id?: string
+          lembrete_enviado_em?: string | null
           nome_mae?: string | null
           nome_pai?: string | null
           preenchido_em?: string | null

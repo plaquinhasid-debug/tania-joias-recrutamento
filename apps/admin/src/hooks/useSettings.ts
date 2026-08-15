@@ -342,3 +342,48 @@ export function useSaveWhatsappFichaAutomaticaAtiva() {
     },
   })
 }
+
+const WHATSAPP_LEMBRETE_FICHA_AUTOMATICO_ATIVA_KEY = "whatsapp_lembrete_ficha_automatico_ativa"
+
+async function fetchWhatsappLembreteFichaAutomaticoAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", WHATSAPP_LEMBRETE_FICHA_AUTOMATICO_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useWhatsappLembreteFichaAutomaticoAtiva() {
+  return useQuery({
+    queryKey: ["settings", WHATSAPP_LEMBRETE_FICHA_AUTOMATICO_ATIVA_KEY],
+    queryFn: fetchWhatsappLembreteFichaAutomaticoAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveWhatsappLembreteFichaAutomaticoAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: WHATSAPP_LEMBRETE_FICHA_AUTOMATICO_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            'Controla se o lembrete da Ficha de Aprovação (reenvio do link, mesmo modelo ficha_aprovacao_link) é enviado automaticamente 1x via pg_cron, para quem está há mais de 2 dias sem preencher. Default false — só liga depois de testar.',
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", WHATSAPP_LEMBRETE_FICHA_AUTOMATICO_ATIVA_KEY], ativa)
+    },
+  })
+}

@@ -28,6 +28,8 @@ import {
   useSaveWhatsappNotificacaoTaniaAtiva,
   useWhatsappFichaAutomaticaAtiva,
   useSaveWhatsappFichaAutomaticaAtiva,
+  useWhatsappLembreteFichaAutomaticoAtiva,
+  useSaveWhatsappLembreteFichaAutomaticoAtiva,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -122,6 +124,23 @@ export default function SettingsPage() {
         checked
           ? "Envio automático do link da Ficha ativado."
           : "Envio automático do link da Ficha desativado.",
+      )
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: lembreteFichaAtivo, isLoading: lembreteFichaLoading } =
+    useWhatsappLembreteFichaAutomaticoAtiva()
+  const saveLembreteFicha = useSaveWhatsappLembreteFichaAutomaticoAtiva()
+
+  async function handleToggleLembreteFicha(checked: boolean) {
+    try {
+      await saveLembreteFicha.mutateAsync(checked)
+      toast.success(
+        checked
+          ? "Lembrete automático da Ficha ativado."
+          : "Lembrete automático da Ficha desativado.",
       )
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
@@ -341,6 +360,38 @@ export default function SettingsPage() {
                 checked={Boolean(fichaAutomaticaAtiva)}
                 onCheckedChange={(checked) => void handleToggleFichaAutomatica(checked)}
                 disabled={saveFichaAutomatica.isPending}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>WhatsApp — Lembrete automático da Ficha</CardTitle>
+          <CardDescription>
+            Quando ativado, todo dia às 10h a Sofia verifica quem está há mais de 2 dias com o link
+            da Ficha gerado e não preenchido, e reenvia o mesmo modelo (ficha_aprovacao_link)
+            sozinha — sem ninguém clicar. Cada candidata só recebe esse lembrete 1 vez. O botão
+            "Lembrar" manual no card do Kanban continua funcionando normalmente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {lembreteFichaLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="whatsapp-lembrete-ficha-ativa">Lembrete automático ativado</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Roda 1x por dia via tarefa agendada — só liga depois de testar.
+                </p>
+              </div>
+              <Switch
+                id="whatsapp-lembrete-ficha-ativa"
+                checked={Boolean(lembreteFichaAtivo)}
+                onCheckedChange={(checked) => void handleToggleLembreteFicha(checked)}
+                disabled={saveLembreteFicha.isPending}
               />
             </div>
           )}
