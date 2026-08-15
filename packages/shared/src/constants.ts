@@ -203,12 +203,15 @@ export function patchForPipelineColumn(
   switch (key) {
     case "contatada":
     case "confirmada":
+    case "aguardando_tania":
     case "ativa":
       return { status: "aprovada", etapa_pos_aprovacao: key }
     case "desistiu":
       return currentStatus === "aprovada"
         ? { status: "aprovada", etapa_pos_aprovacao: "desistiu" }
         : { status: "reprovada", etapa_pos_aprovacao: null }
+    case "reprovada":
+      return { status: "reprovada", etapa_pos_aprovacao: null }
     case "aprovada":
       return { status: "aprovada", etapa_pos_aprovacao: null }
     default:
