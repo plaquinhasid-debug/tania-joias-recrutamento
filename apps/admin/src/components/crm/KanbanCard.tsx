@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { ClipboardCheck, ClipboardList, PhoneCall } from "lucide-react"
-import { PROXIMA_ACAO_LABEL } from "@tania-joias/shared"
+import { ETAPA_DETALHE_LABEL, PROXIMA_ACAO_LABEL, pipelineColumnKeyForLead } from "@tania-joias/shared"
 
 import { Badge } from "@/components/ui/badge"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
@@ -27,6 +27,7 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
 
   const proximaAcao = latestProximaAcao(lead)
   const fichaStatus = fichaStatusForLead(lead)
+  const etapaDetalhe = ETAPA_DETALHE_LABEL[pipelineColumnKeyForLead(lead)]
 
   return (
     <div
@@ -43,6 +44,9 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
       <p className="text-sm font-medium text-foreground">{lead.nome}</p>
       <p className="mt-1 text-xs text-muted-foreground">{lead.cidade ?? "Cidade não informada"}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{formatPhone(lead.telefone)}</p>
+      {etapaDetalhe && (
+        <p className="mt-1 text-[11px] italic text-muted-foreground">{etapaDetalhe}</p>
+      )}
       {proximaAcao && proximaAcao !== "aguardar" && (
         <Badge variant={PROXIMA_ACAO_VARIANT[proximaAcao]} className="mt-2 gap-1">
           <PhoneCall className="size-3" />

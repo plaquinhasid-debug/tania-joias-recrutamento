@@ -122,30 +122,58 @@ export interface PipelineColumn {
   key: PipelineColumnKey
   label: string
   color: string
+  /**
+   * Outras chaves reais que também caem visualmente nesta coluna (ver
+   * `displayColumnKeyForLead`). Levantamento em produção (14/08) mostrou que
+   * essas etapas nunca tiveram card algum e/ou só existem como um "piscar"
+   * automático entre duas outras — juntar reduz o board de 9 pra 6 colunas
+   * sem apagar o dado real: `pipelineColumnKeyForLead` continua devolvendo o
+   * valor exato, só a exibição é que agrupa.
+   */
+  groupKeys?: PipelineColumnKey[]
 }
 
 export const PIPELINE_COLUMNS: PipelineColumn[] = [
-  { key: "novo", label: LEAD_STATUS_LABEL.novo, color: LEAD_STATUS_COLOR.novo },
-  { key: "em_analise", label: LEAD_STATUS_LABEL.em_analise, color: LEAD_STATUS_COLOR.em_analise },
+  {
+    key: "novo",
+    label: "Novo Lead",
+    color: LEAD_STATUS_COLOR.novo,
+    groupKeys: ["em_analise"],
+  },
   { key: "aprovada", label: LEAD_STATUS_LABEL.aprovada, color: LEAD_STATUS_COLOR.aprovada },
   { key: "contatada", label: ETAPA_POS_APROVACAO_LABEL.contatada, color: ETAPA_POS_APROVACAO_COLOR.contatada },
-  { key: "confirmada", label: ETAPA_POS_APROVACAO_LABEL.confirmada, color: ETAPA_POS_APROVACAO_COLOR.confirmada },
   {
-    key: "aguardando_tania",
-    label: ETAPA_POS_APROVACAO_LABEL.aguardando_tania,
+    key: "confirmada",
+    label: "Aguardando aprovação da Tania",
     color: ETAPA_POS_APROVACAO_COLOR.aguardando_tania,
+    groupKeys: ["aguardando_tania"],
   },
   { key: "ativa", label: ETAPA_POS_APROVACAO_LABEL.ativa, color: ETAPA_POS_APROVACAO_COLOR.ativa },
-  { key: "desistiu", label: ETAPA_POS_APROVACAO_LABEL.desistiu, color: ETAPA_POS_APROVACAO_COLOR.desistiu },
-  { key: "reprovada", label: LEAD_STATUS_LABEL.reprovada, color: LEAD_STATUS_COLOR.reprovada },
+  {
+    key: "desistiu",
+    label: "Não aprovada",
+    color: ETAPA_POS_APROVACAO_COLOR.desistiu,
+    groupKeys: ["reprovada"],
+  },
 ]
+
+/**
+ * Rótulo extra pro card, só quando o estado real é mais específico que a
+ * coluna visual onde ele foi agrupado (`groupKeys` acima) — assim a
+ * informação não se perde, só sai da largura de uma coluna inteira.
+ */
+export const ETAPA_DETALHE_LABEL: Partial<Record<PipelineColumnKey, string>> = {
+  em_analise: "Em análise pela Sofia",
+  aguardando_tania: "Mensagem enviada, aguardando resposta",
+  reprovada: "Reprovada pelo sistema",
+}
 
 interface LeadForPipeline {
   status: LeadStatus
   etapa_pos_aprovacao: EtapaPosAprovacao | null
 }
 
-/** Em qual coluna do Kanban uma lead cai, combinando `status` + `etapa_pos_aprovacao`. */
+/** Em qual etapa real (banco) uma lead está, combinando `status` + `etapa_pos_aprovacao`. */
 export function pipelineColumnKeyForLead(lead: LeadForPipeline): PipelineColumnKey {
   if (lead.status === "aprovada") {
     return lead.etapa_pos_aprovacao ?? "aprovada"
@@ -153,17 +181,34 @@ export function pipelineColumnKeyForLead(lead: LeadForPipeline): PipelineColumnK
   return lead.status
 }
 
-/** O que gravar no banco quando uma lead é arrastada para a coluna `key`. */
+/** Em qual coluna visual do Kanban uma lead cai, já aplicando os agrupamentos de `groupKeys`. */
+export function displayColumnKeyForLead(lead: LeadForPipeline): PipelineColumnKey {
+  const realKey = pipelineColumnKeyForLead(lead)
+  const column = PIPELINE_COLUMNS.find(
+    (col) => col.key === realKey || col.groupKeys?.includes(realKey),
+  )
+  return column?.key ?? realKey
+}
+
+/**
+ * O que gravar no banco quando uma lead é arrastada para a coluna `key`.
+ * `currentStatus` só importa pra coluna fundida "Não aprovada": se a lead já
+ * tinha sido aprovada em algum momento, arrastar pra lá é "desistiu"; se
+ * ainda não tinha passado da aprovação, é "reprovada" — nunca os dois juntos.
+ */
 export function patchForPipelineColumn(
   key: PipelineColumnKey,
+  currentStatus?: LeadStatus,
 ): { status: LeadStatus; etapa_pos_aprovacao: EtapaPosAprovacao | null } {
   switch (key) {
     case "contatada":
     case "confirmada":
-    case "aguardando_tania":
     case "ativa":
-    case "desistiu":
       return { status: "aprovada", etapa_pos_aprovacao: key }
+    case "desistiu":
+      return currentStatus === "aprovada"
+        ? { status: "aprovada", etapa_pos_aprovacao: "desistiu" }
+        : { status: "reprovada", etapa_pos_aprovacao: null }
     case "aprovada":
       return { status: "aprovada", etapa_pos_aprovacao: null }
     default:

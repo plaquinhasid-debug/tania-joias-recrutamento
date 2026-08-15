@@ -14,8 +14,8 @@ import {
 import { toast } from "sonner"
 import {
   PIPELINE_COLUMNS,
+  displayColumnKeyForLead,
   patchForPipelineColumn,
-  pipelineColumnKeyForLead,
   type PipelineColumnKey,
 } from "@tania-joias/shared"
 
@@ -32,7 +32,7 @@ function groupByColumn(leads: LeadWithAnalysis[]): GroupedLeads {
     PIPELINE_COLUMNS.map((col) => [col.key, [] as LeadWithAnalysis[]]),
   ) as GroupedLeads
   for (const lead of leads) {
-    grouped[pipelineColumnKeyForLead(lead)]?.push(lead)
+    grouped[displayColumnKeyForLead(lead)]?.push(lead)
   }
   return grouped
 }
@@ -114,7 +114,7 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     const lead = grouped[sourceKey].find((l) => l.id === leadId)
     if (!lead) return
 
-    const patch = patchForPipelineColumn(targetKey)
+    const patch = patchForPipelineColumn(targetKey, lead.status)
 
     setGrouped((prev) => ({
       ...prev,
