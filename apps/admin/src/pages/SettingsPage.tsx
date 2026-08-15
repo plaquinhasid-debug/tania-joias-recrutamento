@@ -26,6 +26,8 @@ import {
   useSaveWhatsappAprovacaoAutomaticaAtiva,
   useWhatsappNotificacaoTaniaAtiva,
   useSaveWhatsappNotificacaoTaniaAtiva,
+  useWhatsappFichaAutomaticaAtiva,
+  useSaveWhatsappFichaAutomaticaAtiva,
 } from "@/hooks/useSettings"
 
 export default function SettingsPage() {
@@ -103,6 +105,23 @@ export default function SettingsPage() {
         checked
           ? "Aviso automático pra Tania ativado."
           : "Aviso automático pra Tania desativado.",
+      )
+    } catch {
+      toast.error("Não foi possível atualizar essa configuração.")
+    }
+  }
+
+  const { data: fichaAutomaticaAtiva, isLoading: fichaAutomaticaLoading } =
+    useWhatsappFichaAutomaticaAtiva()
+  const saveFichaAutomatica = useSaveWhatsappFichaAutomaticaAtiva()
+
+  async function handleToggleFichaAutomatica(checked: boolean) {
+    try {
+      await saveFichaAutomatica.mutateAsync(checked)
+      toast.success(
+        checked
+          ? "Envio automático do link da Ficha ativado."
+          : "Envio automático do link da Ficha desativado.",
       )
     } catch {
       toast.error("Não foi possível atualizar essa configuração.")
@@ -289,6 +308,39 @@ export default function SettingsPage() {
                 checked={Boolean(whatsappAutomaticoAtiva)}
                 onCheckedChange={(checked) => void handleToggleWhatsappAutomatico(checked)}
                 disabled={saveWhatsappAutomatico.isPending}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>WhatsApp — Link da Ficha automático</CardTitle>
+          <CardDescription>
+            Quando ativado, assim que o link da Ficha de Aprovação é gerado, a candidata recebe
+            automaticamente o modelo "ficha_aprovacao_link" (aprovado pela Meta) com um botão
+            "Preencher Ficha" — no lugar do clique manual em "Mandar pelo WhatsApp". O botão manual
+            continua existindo como reserva, caso o envio automático falhe.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {fichaAutomaticaLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <Label htmlFor="whatsapp-ficha-automatica-ativa">Envio automático ativado</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Requer o secret WHATSAPP_FICHA_TEMPLATE_NAME configurado no Supabase — só liga
+                  depois de testar com um número real.
+                </p>
+              </div>
+              <Switch
+                id="whatsapp-ficha-automatica-ativa"
+                checked={Boolean(fichaAutomaticaAtiva)}
+                onCheckedChange={(checked) => void handleToggleFichaAutomatica(checked)}
+                disabled={saveFichaAutomatica.isPending}
               />
             </div>
           )}

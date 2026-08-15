@@ -14,7 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
-import { sendWhatsappApprovalTemplate } from "../_shared/whatsapp-cloud-api.ts"
+import { sendWhatsappApprovalTemplate, sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
 
 // Profissões que costumam indicar bom encaixe como revendedora (círculo
@@ -69,6 +69,7 @@ type CidadesAtendidas = { restringir: boolean; lista: string[] }
 type SofiaIaAtiva = { ativa: boolean }
 
 type WhatsappAprovacaoAutomaticaAtiva = { ativa: boolean }
+type WhatsappFichaAutomaticaAtiva = { ativa: boolean }
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -207,6 +208,7 @@ Deno.serve(async (req) => {
       "cidades_atendidas",
       "sofia_ia_ativa",
       "whatsapp_aprovacao_automatica_ativa",
+      "whatsapp_ficha_automatica_ativa",
     ])
 
   if (settingsError) {
@@ -221,6 +223,9 @@ Deno.serve(async (req) => {
   const whatsappAprovacaoAutomaticaAtiva = Boolean(
     (settingsMap.whatsapp_aprovacao_automatica_ativa as WhatsappAprovacaoAutomaticaAtiva | undefined)
       ?.ativa,
+  )
+  const whatsappFichaAutomaticaAtiva = Boolean(
+    (settingsMap.whatsapp_ficha_automatica_ativa as WhatsappFichaAutomaticaAtiva | undefined)?.ativa,
   )
 
   const cidadeAtendida = isCidadeAtendida(payload.cidade, cidadesConfig)
@@ -374,15 +379,41 @@ Deno.serve(async (req) => {
     // isso, essa lead ficava esperando alguém lembrar de gerar o link
     // manualmente. Best-effort: nunca deve derrubar a resposta principal.
     try {
-      const { error: fichaError } = await supabase
+      const { data: ficha, error: fichaError } = await supabase
         .from("leads_ficha")
         .insert({ lead_id: lead.id })
+        .select("token")
+        .single()
       if (fichaError) throw fichaError
       await supabase
         .from("leads")
         .update({ etapa_pos_aprovacao: "contatada" })
         .eq("id", lead.id)
         .is("etapa_pos_aprovacao", null)
+
+      if (whatsappFichaAutomaticaAtiva && payload.whatsapp === true) {
+        const token = Deno.env.get("WHATSAPP_CLOUD_API_TOKEN")
+        const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+        const templateName = Deno.env.get("WHATSAPP_FICHA_TEMPLATE_NAME")
+        if (token && phoneNumberId && templateName) {
+          try {
+            await sendWhatsappFichaTemplate({
+              token,
+              phoneNumberId,
+              templateName,
+              telefone: payload.telefone,
+              nome: payload.nome,
+              fichaToken: ficha.token,
+            })
+            await supabase
+              .from("leads_ficha")
+              .update({ whatsapp_enviado_em: new Date().toISOString() })
+              .eq("lead_id", lead.id)
+          } catch (err) {
+            console.error("[finalize-candidate] falha ao enviar WhatsApp da Ficha", err)
+          }
+        }
+      }
     } catch (err) {
       console.error("[finalize-candidate] falha ao gerar link da Ficha automaticamente", err)
     }

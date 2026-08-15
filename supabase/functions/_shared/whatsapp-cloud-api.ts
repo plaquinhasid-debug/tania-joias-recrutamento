@@ -73,6 +73,73 @@ export async function sendWhatsappApprovalTemplate({
   }
 }
 
+export interface SendWhatsappFichaTemplateParams {
+  token: string
+  phoneNumberId: string
+  templateName: string
+  telefone: string
+  nome: string
+  fichaToken: string
+}
+
+/**
+ * Envia o template `ficha_aprovacao_link` (aprovado pela Meta em 14/08/2026)
+ * via WhatsApp Cloud API. Corpo tem 1 variável (primeiro nome); o botão
+ * "Preencher Ficha" é uma URL dinâmica cuja parte fixa
+ * (`https://tania-joias-landing.vercel.app/ficha/`) já está no modelo — só o
+ * token entra como parâmetro do botão, nunca a URL inteira.
+ */
+export async function sendWhatsappFichaTemplate({
+  token,
+  phoneNumberId,
+  templateName,
+  telefone,
+  nome,
+  fichaToken,
+}: SendWhatsappFichaTemplateParams): Promise<void> {
+  const to = normalizeBrazilPhone(telefone)
+  const primeiroNome = nome.trim().split(/\s+/)[0] ?? nome
+
+  const body = {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: "pt_BR" },
+      components: [
+        {
+          type: "body",
+          parameters: [{ type: "text", text: primeiroNome }],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [{ type: "text", text: fichaToken }],
+        },
+      ],
+    },
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(`whatsapp_cloud_api_error: ${response.status} ${detail}`)
+  }
+}
+
 export interface SendWhatsappFreeTextParams {
   token: string
   phoneNumberId: string

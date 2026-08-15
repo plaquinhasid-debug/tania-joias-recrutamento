@@ -402,6 +402,7 @@ export type Database = {
           trabalha_atualmente: boolean | null
           trabalho_endereco: string | null
           trabalho_telefone: string | null
+          whatsapp_enviado_em: string | null
         }
         Insert: {
           conjuge_nome?: string | null
@@ -434,6 +435,7 @@ export type Database = {
           trabalha_atualmente?: boolean | null
           trabalho_endereco?: string | null
           trabalho_telefone?: string | null
+          whatsapp_enviado_em?: string | null
         }
         Update: {
           conjuge_nome?: string | null
@@ -466,6 +468,7 @@ export type Database = {
           trabalha_atualmente?: boolean | null
           trabalho_endereco?: string | null
           trabalho_telefone?: string | null
+          whatsapp_enviado_em?: string | null
         }
         Relationships: [
           {
@@ -565,6 +568,74 @@ export type Database = {
           valor?: Json
         }
         Relationships: []
+      }
+      whatsapp_contacts: {
+        Row: {
+          created_at: string
+          last_message_at: string
+          nome: string | null
+          telefone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_message_at?: string
+          nome?: string | null
+          telefone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_message_at?: string
+          nome?: string | null
+          telefone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          id: string
+          message_type: string
+          meta_message_id: string
+          raw_payload: Json | null
+          status: string | null
+          telefone: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction: string
+          id?: string
+          message_type?: string
+          meta_message_id: string
+          raw_payload?: Json | null
+          status?: string | null
+          telefone: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          message_type?: string
+          meta_message_id?: string
+          raw_payload?: Json | null
+          status?: string | null
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_telefone_fkey"
+            columns: ["telefone"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["telefone"]
+          },
+        ]
       }
     }
     Views: {

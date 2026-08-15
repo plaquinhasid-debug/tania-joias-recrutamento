@@ -297,3 +297,48 @@ export function useSaveWhatsappNotificacaoTaniaAtiva() {
     },
   })
 }
+
+const WHATSAPP_FICHA_AUTOMATICA_ATIVA_KEY = "whatsapp_ficha_automatica_ativa"
+
+async function fetchWhatsappFichaAutomaticaAtiva(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", WHATSAPP_FICHA_AUTOMATICA_ATIVA_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.valor as { ativa?: boolean } | undefined
+  return Boolean(valor?.ativa)
+}
+
+export function useWhatsappFichaAutomaticaAtiva() {
+  return useQuery({
+    queryKey: ["settings", WHATSAPP_FICHA_AUTOMATICA_ATIVA_KEY],
+    queryFn: fetchWhatsappFichaAutomaticaAtiva,
+    staleTime: 30_000,
+  })
+}
+
+export function useSaveWhatsappFichaAutomaticaAtiva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ativa: boolean) => {
+      const { error } = await supabase.from("settings").upsert(
+        {
+          chave: WHATSAPP_FICHA_AUTOMATICA_ATIVA_KEY,
+          valor: { ativa } as unknown as Json,
+          descricao:
+            'Controla se o link da Ficha de Aprovação é enviado automaticamente via WhatsApp Cloud API (modelo ficha_aprovacao_link) assim que é gerado, em vez do clique manual em "Mandar pelo WhatsApp". Default false — só liga depois de testar com um número real.',
+        },
+        { onConflict: "chave" },
+      )
+      if (error) throw error
+      return ativa
+    },
+    onSuccess: (ativa) => {
+      queryClient.setQueryData(["settings", WHATSAPP_FICHA_AUTOMATICA_ATIVA_KEY], ativa)
+    },
+  })
+}
