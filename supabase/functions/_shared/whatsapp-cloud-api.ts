@@ -96,7 +96,7 @@ export async function sendWhatsappFichaTemplate({
   telefone,
   nome,
   fichaToken,
-}: SendWhatsappFichaTemplateParams): Promise<void> {
+}: SendWhatsappFichaTemplateParams): Promise<unknown> {
   const to = normalizeBrazilPhone(telefone)
   const primeiroNome = nome.trim().split(/\s+/)[0] ?? nome
 
@@ -138,6 +138,8 @@ export async function sendWhatsappFichaTemplate({
     const detail = await response.text()
     throw new Error(`whatsapp_cloud_api_error: ${response.status} ${detail}`)
   }
+
+  return response.json()
 }
 
 export interface SendWhatsappFreeTextParams {

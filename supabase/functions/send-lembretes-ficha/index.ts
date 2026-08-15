@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
   let enviados = 0
   let ignorados = 0
   const erros: string[] = []
+  const respostas: unknown[] = []
 
   for (const ficha of pendentes ?? []) {
     const lead = ficha.leads as unknown as
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      await sendWhatsappFichaTemplate({
+      const resposta = await sendWhatsappFichaTemplate({
         token,
         phoneNumberId,
         templateName,
@@ -97,6 +98,7 @@ Deno.serve(async (req) => {
         nome: lead.nome,
         fichaToken: ficha.token,
       })
+      respostas.push(resposta)
       await supabase
         .from("leads_ficha")
         .update({ lembrete_enviado_em: new Date().toISOString() })
@@ -107,5 +109,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse({ enviados, ignorados, erros })
+  return jsonResponse({ enviados, ignorados, erros, respostas })
 })
