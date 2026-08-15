@@ -1,14 +1,23 @@
+import type { MouseEvent } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ClipboardCheck, ClipboardList, PhoneCall } from "lucide-react"
+import { AlarmClock, ClipboardCheck, ClipboardList, PhoneCall } from "lucide-react"
 import { ETAPA_DETALHE_LABEL, PROXIMA_ACAO_LABEL, pipelineColumnKeyForLead } from "@tania-joias/shared"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { cn } from "@/lib/utils"
-import { formatDate, formatPhone } from "@/lib/format"
-import { fichaStatusForLead, latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
+import { formatDate, formatPhone, formatRelative, whatsappLinkWithMessage } from "@/lib/format"
+import { fichaPendente, fichaStatusForLead, latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
+import { fichaLinkUrl } from "@/hooks/useLeadFicha"
+
+/** Mesmo espírito do lembrete manual de "Mandar pelo WhatsApp" — só que cobrando o preenchimento, não anunciando o link pela primeira vez. */
+function mensagemLembrete(nome: string, token: string): string {
+  const primeiroNome = nome.trim().split(/\s+/)[0] ?? ""
+  return `Oi, ${primeiroNome}! 🌸\n\nPassando só pra lembrar de preencher sua Ficha de Aprovação e liberar seu Mostruário — é rapidinho:\n\n${fichaLinkUrl(token)}\n\nQualquer dúvida, é só chamar aqui! 💛`
+}
 
 interface KanbanCardProps {
   lead: LeadWithAnalysis
@@ -28,6 +37,14 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   const proximaAcao = latestProximaAcao(lead)
   const fichaStatus = fichaStatusForLead(lead)
   const etapaDetalhe = ETAPA_DETALHE_LABEL[pipelineColumnKeyForLead(lead)]
+  const pendente = fichaPendente(lead)
+
+  function handleLembrar(event: MouseEvent) {
+    event.stopPropagation()
+    if (!pendente) return
+    const link = whatsappLinkWithMessage(lead.telefone, mensagemLembrete(lead.nome, pendente.token))
+    if (link) window.open(link, "_blank", "noopener,noreferrer")
+  }
 
   return (
     <div
@@ -62,6 +79,23 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
           )}
           {fichaStatus === "preenchida" ? "Ficha preenchida" : "Ficha pendente"}
         </Badge>
+      )}
+      {pendente && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-muted-foreground">
+            Enviada {formatRelative(pendente.criado_em)}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 gap-1 px-2 text-[11px]"
+            disabled={lead.whatsapp !== true}
+            onClick={handleLembrar}
+          >
+            <AlarmClock className="size-3" />
+            Lembrar
+          </Button>
+        </div>
       )}
       <div className="mt-2 flex items-center justify-between gap-2">
         <PerfilComercialBadge perfil={lead.perfil_comercial} />

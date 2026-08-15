@@ -17,7 +17,7 @@ export const DEFAULT_LEAD_FILTERS: LeadFiltersState = {
 /** Lead com o histórico de análises e a Ficha de Aprovação embutidos — só o suficiente pro Kanban/lista. */
 export type LeadWithAnalysis = Lead & {
   ai_analysis: { proxima_acao: string | null; created_at: string }[]
-  leads_ficha: { preenchido_em: string | null }[]
+  leads_ficha: { token: string; criado_em: string; preenchido_em: string | null }[]
 }
 
 /** Uma lead pode ter mais de uma `ai_analysis` (reprocessamento) — a mais recente é a que vale. */
@@ -33,10 +33,17 @@ export function fichaStatusForLead(lead: LeadWithAnalysis): "pendente" | "preenc
   return ficha.preenchido_em ? "preenchida" : "pendente"
 }
 
+/** Linha da Ficha ainda pendente (link gerado, não preenchida) — `null` se não existe ficha ou já foi preenchida. */
+export function fichaPendente(lead: LeadWithAnalysis): LeadWithAnalysis["leads_ficha"][number] | null {
+  const ficha = lead.leads_ficha[0]
+  if (!ficha || ficha.preenchido_em) return null
+  return ficha
+}
+
 async function fetchLeads(filters: LeadFiltersState): Promise<LeadWithAnalysis[]> {
   let query = supabase
     .from("leads")
-    .select("*, ai_analysis(proxima_acao, created_at), leads_ficha(preenchido_em)")
+    .select("*, ai_analysis(proxima_acao, created_at), leads_ficha(token, criado_em, preenchido_em)")
     .order("created_at", { ascending: false })
 
   if (filters.status !== "todos") {
