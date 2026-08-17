@@ -11,6 +11,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -61,10 +62,30 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   async function handleStatusChange(status: "aprovada" | "reprovada") {
     if (!lead) return
     try {
-      await updateLead.mutateAsync({ id: lead.id, patch: { status }, previousStatus: lead.status })
+      await updateLead.mutateAsync({
+        id: lead.id,
+        patch: { status },
+        previousStatus: lead.status,
+        leadWhatsapp: lead.whatsapp,
+      })
       toast.success(status === "aprovada" ? "Lead aprovada." : "Lead reprovada.")
-    } catch {
-      toast.error("Não foi possível atualizar o status.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível atualizar o status.")
+    }
+  }
+
+  // RFC-INTELLIGENCE-006 — WhatsApp é obrigatório para aprovar (gate em
+  // `useUpdateLead`, ver comentário de `leadWhatsapp` em `useLeadDetail.ts`).
+  // Esta é a única forma de corrigir/confirmar o campo pelo Admin — sem
+  // isso, uma lead com `whatsapp` false/nulo por engano (ou desatualizado)
+  // ficaria travada sem nenhum caminho pra equipe liberar manualmente.
+  async function handleConfirmWhatsapp() {
+    if (!lead) return
+    try {
+      await updateLead.mutateAsync({ id: lead.id, patch: { whatsapp: true } })
+      toast.success("WhatsApp confirmado.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível confirmar o WhatsApp.")
     }
   }
 
@@ -241,6 +262,40 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
               <Separator />
 
               <section>
+                <h3 className="mb-2 text-sm font-semibold text-foreground">WhatsApp</h3>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      lead.whatsapp === true
+                        ? "border-success/40 text-success"
+                        : "border-warning/40 text-warning"
+                    }
+                  >
+                    {lead.whatsapp === true ? "Confirmado" : "Não confirmado"}
+                  </Badge>
+                  {lead.whatsapp !== true && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={updateLead.isPending}
+                      onClick={() => void handleConfirmWhatsapp()}
+                    >
+                      Confirmar WhatsApp
+                    </Button>
+                  )}
+                </div>
+                {lead.whatsapp !== true && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    A candidata respondeu que não tem WhatsApp nesse número (ou não informou).
+                    WhatsApp é obrigatório — confirme antes de aprovar.
+                  </p>
+                )}
+              </section>
+
+              <Separator />
+
+              <section>
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Observações</h3>
                 <Textarea
                   value={observacoes}
@@ -266,7 +321,8 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
               <Button
                 variant="outline"
                 className="flex-1 border-success/40 text-success hover:bg-success/10"
-                disabled={updateLead.isPending || lead.status === "aprovada"}
+                disabled={updateLead.isPending || lead.status === "aprovada" || lead.whatsapp !== true}
+                title={lead.whatsapp !== true ? "Confirme que a candidata possui WhatsApp antes de aprová-la." : undefined}
                 onClick={() => void handleStatusChange("aprovada")}
               >
                 <CheckCircle2 className="size-4" />

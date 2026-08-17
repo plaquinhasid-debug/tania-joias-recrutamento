@@ -6,7 +6,7 @@ export const identificacaoSchema = z.object({
   idade: z.coerce
     .number({ invalid_type_error: "Informe uma idade válida" })
     .int()
-    .min(16, "Idade mínima de 16 anos")
+    .min(18, "Idade mínima de 18 anos")
     .max(99, "Informe uma idade válida"),
   telefone: z
     .string()

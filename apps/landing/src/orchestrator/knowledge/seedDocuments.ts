@@ -10,13 +10,22 @@
  * `ToolEngine`/FEATURE-003, pausada) — carregar conteúdo oficial aqui não
  * muda isso; é só o primeiro passo para a FEATURE-003 ter o que responder.
  *
- * COM-002 está na v1.1 (`docs/knowledge/COM-002-recrutamento.md`): as duas
- * divergências da v1.0 foram resolvidas pelo Antonio — "Ribeirão Pires"
- * incluída nas cidades atendidas (agora bate com o setting
- * `cidades_atendidas` em produção) e o critério de filhos/estado civil foi
- * removido (reintrodução por engano na v1.0; conflitava com decisão
- * anterior de não usar gênero/número de filhos como critério, por risco de
- * discriminação).
+ * COM-002 está na v1.2 (`docs/knowledge/COM-002-recrutamento.md`): a v1.1
+ * resolveu as duas divergências da v1.0 — "Ribeirão Pires" incluída nas
+ * cidades atendidas (agora bate com o setting `cidades_atendidas` em
+ * produção) e o critério de filhos/estado civil removido (reintrodução por
+ * engano na v1.0; conflitava com decisão anterior de não usar gênero/número
+ * de filhos como critério, por risco de discriminação). A v1.2
+ * (RFC-INTELLIGENCE-005/006) corrigiu três divergências encontradas contra
+ * o Knowledge Layer oficial: idade mínima era comunicada como "21 anos" (o
+ * correto é 18); Instagram era comunicado como obrigatório junto ao
+ * WhatsApp (só WhatsApp é obrigatório; Instagram é opcional); e a atividade
+ * profissional aceita era comunicada de forma mais estreita
+ * (empresa/escola/hospital/cabeleireira) do que a regra real, que também
+ * aceita autônoma/comerciante/dona do próprio negócio/qualquer ocupação
+ * real. O critério de gênero ("ser mulher") foi removido do texto — nunca
+ * foi implementado como regra executável em nenhum ponto do sistema (RFC-
+ * INTELLIGENCE-005/006), e não deve virar gate agora.
  *
  * TODOS os documentos abaixo são `visibility: "public"` — é conteúdo
  * seguro pra candidata ler ou pra entrar num prompt de IA. A seção
@@ -84,12 +93,12 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     titulo: "Quem pode ser revendedora",
     categoria: "RECRUTAMENTO",
     conteudo:
-      "Para se tornar revendedora da Tania Joias é necessário: ser mulher, acima de 21 anos; morar em Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo ou São Caetano do Sul; ter WhatsApp e Instagram; e estar trabalhando — em uma empresa, escola ou hospital, ou ser cabeleireira atuando em salão de beleza.",
+      "Para se tornar revendedora da Tania Joias é necessário: ter 18 anos completos ou mais; morar em Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo ou São Caetano do Sul; ter WhatsApp (Instagram é bem-vindo, mas não obrigatório); e estar trabalhando ou exercer alguma atividade profissional ativa — pode ser como funcionária, autônoma, comerciante ou em qualquer outra ocupação real.",
     tags: ["elegibilidade", "requisitos"],
-    palavrasChave: ["requisitos", "posso ser revendedora", "cidade atendida", "idade minima", "precisa trabalhar", "ribeirao pires"],
+    palavrasChave: ["requisitos", "posso ser revendedora", "cidade atendida", "idade minima", "precisa trabalhar", "ribeirao pires", "autonoma", "instagram obrigatorio"],
     prioridade: 9,
     visibility: "public",
-    versao: 2,
+    versao: 3,
     ativo: true,
     criadoEm: AGORA,
     atualizadoEm: AGORA,

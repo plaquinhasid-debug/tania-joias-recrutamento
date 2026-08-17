@@ -21,12 +21,15 @@ export const SOFIA_INTRO_LINES = [
 ] as const
 
 // Texto oficial e imutável da regra "Você trabalha atualmente?" — nunca deve
-// ser gerado ou parafraseado por IA. Definido pelo Antonio (proprietário),
-// ver `docs/knowledge/COM-002-recrutamento.md` v1.1 ("Critério de
-// reprovação" — desempregada). Verbatim, sem paráfrase — só dividido em 2
-// linhas pra caber no formato de bolhas de chat já usado no roteiro.
+// ser gerado ou parafraseado por IA. Atualizado na RFC-INTELLIGENCE-006 pra
+// refletir a regra ampla de atividade profissional do Knowledge Layer
+// (docs/knowledge/COM-002-recrutamento.md v1.2) — a lista fechada anterior
+// (empresa/escola/hospital/cabeleireira) foi substituída por uma descrição
+// aberta, sem revelar o racional interno de risco/segurança da consignação.
+// Verbatim, sem paráfrase — só dividido em 2 linhas pra caber no formato de
+// bolhas de chat já usado no roteiro.
 export const SOFIA_REJECTION_LINES = [
-  "No momento, um dos requisitos para ser revendedora é estar trabalhando (empresa, escola, hospital) ou atuar como cabeleireira em salão de beleza.",
+  "No momento, um dos requisitos para ser revendedora é estar trabalhando ou exercer alguma atividade profissional ativa — seja como funcionária, autônoma, comerciante ou em qualquer outra ocupação real.",
   "Por esse motivo, não conseguimos seguir com sua candidatura agora — mas você pode se candidatar novamente assim que essa situação mudar.",
 ] as const
 
@@ -138,8 +141,12 @@ export const SOFIA_STEPS: SofiaStep[] = [
     // Pergunta base — quando a IA contextual estiver ativa (`sofia_ia_ativa`),
     // esta linha é substituída por uma variante que já reage à profissão
     // informada no passo anterior (ver `useSofiaFlow.ts`/`sofia-reagir`).
-    question: "Onde você trabalha?",
-    placeholder: "Nome da empresa",
+    // RFC-INTELLIGENCE-006: texto ajustado pra deixar claro que atividade
+    // autônoma/comercial também conta — o campo já aceitava qualquer texto
+    // (nunca foi gate), só a pergunta sugeria "nome de empresa" com força
+    // demais.
+    question: "Me conta rapidinho sobre seu trabalho hoje — pode ser empresa, seu próprio negócio, ou atividade autônoma.",
+    placeholder: "Ex.: nome da empresa, ou 'trabalho por conta própria'",
     schema: qualificacaoSchema.shape.empresa_atual,
     skip: trabalhaFalso,
   },

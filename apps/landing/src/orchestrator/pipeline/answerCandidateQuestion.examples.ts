@@ -14,6 +14,7 @@
  */
 import { AIGateway } from "../ai/AIGateway"
 import type { AIProvider, AIRequest, AIResponse } from "../ai/AIProvider"
+import { createDefaultKnowledgeEngine } from "../knowledge/KnowledgeEngine"
 import { answerCandidateQuestion } from "./answerCandidateQuestion"
 import type { AnswerCandidateQuestionResult } from "./answerCandidateQuestion"
 
@@ -89,5 +90,66 @@ export async function runAnswerCandidateQuestionExamples(): Promise<
   for (const example of EXAMPLES) {
     resultados.push({ name: example.name, result: await example.run() })
   }
+  return resultados
+}
+
+// RFC-INTELLIGENCE-006 — cenários H/I/J: confirmam que o KnowledgeEngine
+// encontra `com-002-elegibilidade` (v3, corrigido) pras perguntas de
+// idade/Instagram/autônoma, e que o CONTEÚDO do documento não carrega mais
+// as três informações incorretas (21 anos, Instagram obrigatório, atividade
+// profissional estreita). Não garante o texto exato que a IA vai gerar —
+// só a base de conhecimento usada como fonte, que é o que de fato está sob
+// controle desta implementação (ver RFC-006, seção 9, observação H/I/J).
+export interface KnowledgeCorrectionCheckResult {
+  name: string
+  passou: boolean
+  detalhe: string
+}
+
+export async function runComElegibilidadeCorrectionChecks(): Promise<KnowledgeCorrectionCheckResult[]> {
+  const engine = createDefaultKnowledgeEngine()
+  const resultados: KnowledgeCorrectionCheckResult[] = []
+
+  function check(name: string, condicao: boolean, detalhe: string) {
+    resultados.push({ name, passou: condicao, detalhe })
+  }
+
+  // H. "preciso ter Instagram?" -> documento encontrado não pode dizer que
+  // Instagram é obrigatório.
+  {
+    const docs = await engine.searchByQuestion("Preciso ter Instagram para ser revendedora?")
+    const encontrado = docs.some((d) => d.id === "com-002-elegibilidade")
+    const conteudo = docs.find((d) => d.id === "com-002-elegibilidade")?.conteudo ?? ""
+    check("H. Pergunta sobre Instagram encontra com-002-elegibilidade", encontrado, `docs encontrados: ${docs.map((d) => d.id).join(", ")}`)
+    check(
+      "H. Conteúdo não afirma 'WhatsApp e Instagram' como obrigatórios juntos",
+      !/whatsapp e instagram/i.test(conteudo),
+      `conteudo="${conteudo}"`,
+    )
+    check("H. Conteúdo afirma Instagram opcional", /instagram.*(não obrigatório|opcional)/i.test(conteudo), `conteudo="${conteudo}"`)
+  }
+
+  // I. "qual a idade mínima?" -> documento encontrado deve dizer 18, nunca 21.
+  {
+    const docs = await engine.searchByQuestion("Qual é a idade mínima para me candidatar?")
+    const conteudo = docs.find((d) => d.id === "com-002-elegibilidade")?.conteudo ?? ""
+    check("I. Conteúdo não menciona '21 anos'", !/21 anos/i.test(conteudo), `conteudo="${conteudo}"`)
+    check("I. Conteúdo menciona '18 anos'", /18 anos/i.test(conteudo), `conteudo="${conteudo}"`)
+  }
+
+  // J. "autônoma pode participar?" -> documento deve deixar claro que sim.
+  {
+    const docs = await engine.searchByQuestion("Eu trabalho por conta própria, autônoma pode se candidatar?")
+    const encontrado = docs.some((d) => d.id === "com-002-elegibilidade")
+    const conteudo = docs.find((d) => d.id === "com-002-elegibilidade")?.conteudo ?? ""
+    check("J. Pergunta sobre autônoma encontra com-002-elegibilidade", encontrado, `docs encontrados: ${docs.map((d) => d.id).join(", ")}`)
+    check("J. Conteúdo menciona 'autônoma' explicitamente", /autônoma/i.test(conteudo), `conteudo="${conteudo}"`)
+    check(
+      "J. Conteúdo não restringe a empresa/escola/hospital/cabeleireira",
+      !/empresa, escola ou hospital/i.test(conteudo),
+      `conteudo="${conteudo}"`,
+    )
+  }
+
   return resultados
 }

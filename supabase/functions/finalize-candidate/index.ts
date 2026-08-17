@@ -16,11 +16,23 @@ import { createClient } from "npm:@supabase/supabase-js@2"
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
 import { sendWhatsappApprovalTemplate, sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
-
-// Profissões que costumam indicar bom encaixe como revendedora (círculo
-// social/atendimento ao público). Sinal positivo para a IA considerar, nunca
-// um filtro obrigatório — a Sofia deve reconhecer profissões semelhantes.
-const PROFISSOES_PREFERIDAS = ["Cabeleireira", "Professora", "Enfermeira", "Bancária"]
+import {
+  PROFISSOES_PREFERIDAS,
+  calcularElegibilidade,
+  calcularIpr,
+  classificarPerfil,
+  decidirStatus,
+  gerarResumo,
+  isCidadeAtendida,
+  mapEstabilidadeProfissional,
+  type CidadesAtendidas,
+  type IprPesos,
+  type IprThresholds,
+  type Payload,
+  type SofiaIaAtiva,
+  type WhatsappAprovacaoAutomaticaAtiva,
+  type WhatsappFichaAutomaticaAtiva,
+} from "./logic.ts"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,148 +40,11 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
-type Payload = {
-  session_id: string
-  nome: string
-  telefone: string
-  cidade?: string
-  idade?: number
-  trabalha: boolean
-  empresa_atual?: string
-  profissao?: string
-  estabilidade_profissional?: string
-  experiencia_vendas?: boolean
-  instagram?: string | null
-  whatsapp?: boolean
-  tempo_disponivel?: string
-  objetivo?: string
-  origem?: string
-  campanha?: string
-  utm_source?: string
-  utm_medium?: string
-  utm_campaign?: string
-  utm_content?: string
-  fbp?: string
-  fbc?: string
-  fbclid?: string
-}
-
-type IprPesos = {
-  trabalha: number
-  experiencia_vendas: number
-  whatsapp: number
-  instagram: number
-  cidade_atendida: number
-}
-
-type IprThresholds = { aprovar: number; analise_min: number }
-
-type CidadesAtendidas = { restringir: boolean; lista: string[] }
-
-type SofiaIaAtiva = { ativa: boolean }
-
-type WhatsappAprovacaoAutomaticaAtiva = { ativa: boolean }
-type WhatsappFichaAutomaticaAtiva = { ativa: boolean }
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   })
-}
-
-function isCidadeAtendida(cidade: string | undefined, config: CidadesAtendidas): boolean {
-  if (!config.restringir) return true
-  if (!cidade) return false
-  const alvo = cidade.trim().toLowerCase()
-  return config.lista.some((c) => c.trim().toLowerCase() === alvo)
-}
-
-function calcularIpr(payload: Payload, pesos: IprPesos, cidadeAtendida: boolean) {
-  if (!payload.trabalha) {
-    const zerado = { trabalha: 0, experiencia_vendas: 0, whatsapp: 0, instagram: 0, cidade_atendida: 0 }
-    return { total: 0, breakdown: zerado }
-  }
-  const breakdown = {
-    trabalha: pesos.trabalha,
-    experiencia_vendas: payload.experiencia_vendas ? pesos.experiencia_vendas : 0,
-    whatsapp: payload.whatsapp ? pesos.whatsapp : 0,
-    instagram: payload.instagram ? pesos.instagram : 0,
-    cidade_atendida: cidadeAtendida ? pesos.cidade_atendida : 0,
-  }
-  const total = Object.values(breakdown).reduce((a, b) => a + b, 0)
-  return { total, breakdown }
-}
-
-function decidirStatus(trabalha: boolean, ipr: number, thresholds: IprThresholds) {
-  if (!trabalha) return "reprovada" as const
-  if (ipr >= thresholds.aprovar) return "aprovada" as const
-  if (ipr >= thresholds.analise_min) return "em_analise" as const
-  return "reprovada" as const
-}
-
-function classificarPerfil(trabalha: boolean, ipr: number, thresholds: IprThresholds) {
-  if (!trabalha) return { perfil: null as null, motivo: "" }
-  if (ipr >= thresholds.aprovar) {
-    return {
-      perfil: "alto" as const,
-      motivo:
-        "Reúne trabalho atual, experiência comercial e os canais de contato ideais (WhatsApp/Instagram) para revender com autonomia.",
-    }
-  }
-  if (ipr >= thresholds.analise_min) {
-    return {
-      perfil: "medio" as const,
-      motivo:
-        "Já trabalha e mostra bom potencial comercial, mas falta algum diferencial (experiência em vendas, WhatsApp, Instagram ou atendimento na cidade).",
-    }
-  }
-  return {
-    perfil: "baixo" as const,
-    motivo:
-      "Está trabalhando, porém ainda não reúne os diferenciais comerciais (experiência em vendas, WhatsApp, Instagram, cidade atendida) que indicam alto potencial imediato.",
-  }
-}
-
-// QUALIFICACAO-002, Parte 1 — normaliza o texto bruto do chip escolhido pra
-// uma das 3 categorias controladas. Match exato (após trim), incluindo o
-// fallback de texto livre do ChipsAnswerInput: se a candidata digitar algo
-// que não bate com nenhuma das 3 opções, ou o campo não vier, o resultado é
-// `null` — não inventamos classificação, nem aqui nem em leads antigos.
-// PROIBIDO participar de calcularIpr/decidirStatus/classificarPerfil (ver
-// QUALIFICACAO-002-estabilidade-trabalho.md).
-type EstabilidadeProfissional = "ALTA" | "MEDIA" | "BAIXA"
-
-function mapEstabilidadeProfissional(raw: string | undefined): EstabilidadeProfissional | null {
-  switch (raw?.trim()) {
-    case "Fixa — mesma empresa/local, mesma escala":
-      return "ALTA"
-    case "Variável, mas recorrente":
-      return "MEDIA"
-    case "Esporádica, sem muita regularidade":
-      return "BAIXA"
-    default:
-      return null
-  }
-}
-
-function gerarResumo(payload: Payload, perfil: "baixo" | "medio" | "alto" | null) {
-  const primeiroNome = payload.nome.split(" ")[0]
-  if (!payload.trabalha) {
-    return `${primeiroNome} respondeu que não está trabalhando atualmente. Cadastro salvo para futuras oportunidades da Tania Joias.`
-  }
-  const partes: string[] = [`${primeiroNome} trabalha como ${payload.profissao || "profissional"}.`]
-  if (payload.experiencia_vendas) {
-    partes.push("Possui experiência com vendas.")
-  }
-  partes.push("Busca renda extra revendendo semijoias.")
-  if (payload.objetivo) {
-    partes.push(`Motivação relatada: "${payload.objetivo}".`)
-  }
-  if (perfil) {
-    partes.push(`Possui perfil comercial ${perfil}.`)
-  }
-  return partes.join(" ")
 }
 
 Deno.serve(async (req) => {
@@ -229,24 +104,29 @@ Deno.serve(async (req) => {
   )
 
   const cidadeAtendida = isCidadeAtendida(payload.cidade, cidadesConfig)
-  const { total: ipr, breakdown } = calcularIpr(payload, pesos, cidadeAtendida)
-  const status = decidirStatus(payload.trabalha, ipr, thresholds)
-  const { perfil, motivo } = classificarPerfil(payload.trabalha, ipr, thresholds)
+  // RFC-INTELLIGENCE-006 — idade e WhatsApp, junto com `trabalha`, são gates
+  // de elegibilidade fora da soma de pontos do IPR (Abordagem A da RFC-006):
+  // `elegivel=false` reprova incondicionalmente, IPR e breakdown vêm
+  // zerados, e nenhum dos dois entra em `settings.ipr_pesos`.
+  const { elegivel, idadeElegivel } = calcularElegibilidade(payload)
+  const { total: ipr, breakdown } = calcularIpr(payload, pesos, cidadeAtendida, elegivel)
+  const status = decidirStatus(elegivel, ipr, thresholds)
+  const { perfil, motivo } = classificarPerfil(elegivel, ipr, thresholds)
   const recomendacao =
     status === "aprovada" ? "aprovar" : status === "reprovada" ? "reprovar" : "analise_manual"
 
-  // Fallback determinístico (sempre calculado). Se a candidata trabalha, a
+  // Fallback determinístico (sempre calculado). Se a candidata é elegível, a
   // flag `sofia_ia_ativa` está ligada e a chave da Anthropic está
   // configurada, tentamos substituir por uma análise real — o rótulo de
   // perfil (`perfil`) e o `status` nunca mudam com isso, só o texto
   // explicativo e os campos consultivos abaixo ficam mais ricos.
-  let resumo = gerarResumo(payload, perfil)
+  let resumo = gerarResumo(payload, idadeElegivel, perfil)
   let motivoFinal = motivo
   let analiseModel = "rules-engine-v1"
   let analiseExpandida: Awaited<ReturnType<typeof generateAiAnalysis>> | null = null
 
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY")
-  if (payload.trabalha && perfil && sofiaIaAtiva && anthropicApiKey) {
+  if (elegivel && perfil && sofiaIaAtiva && anthropicApiKey) {
     try {
       const ai = await generateAiAnalysis({
         apiKey: anthropicApiKey,

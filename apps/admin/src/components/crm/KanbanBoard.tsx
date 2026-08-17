@@ -123,10 +123,10 @@ export function KanbanBoard({ leads, onSelectLead }: KanbanBoardProps) {
     }))
 
     updateLead.mutate(
-      { id: leadId, patch, previousStatus: lead.status },
+      { id: leadId, patch, previousStatus: lead.status, leadWhatsapp: lead.whatsapp },
       {
-        onError: () => {
-          toast.error("Não foi possível mover o lead. Tente novamente.")
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : "Não foi possível mover o lead. Tente novamente.")
           setGrouped(groupByColumn(leads))
         },
       },
