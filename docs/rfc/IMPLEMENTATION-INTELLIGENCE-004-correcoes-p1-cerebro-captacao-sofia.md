@@ -3,7 +3,8 @@
 **Baseado em:** `RFC-INTELLIGENCE-007 — Correções P1 Cérebro × Captação/Sofia` (decisões aprovadas por Antonio Carlos)
 **Repositório:** `PROJETO CAPTURA DE LEADS 02` (`tania-joias-recrutamento`)
 **Branch/commit inicial:** `main`, `fe78e571487dcb9339de56918cac7fddff464dab` (topo do P0, já em produção)
-**Status:** IMPLEMENTADO E TESTADO LOCALMENTE — AGUARDANDO REVISÃO DE DIFF E AUTORIZAÇÃO PARA COMMIT/DEPLOY
+**Commit desta implementação:** `a721f75b80f823d39a8b60dc12f780f7d95ff008` — "fix(sofia): alinha cidades e comunicacao ao Knowledge Layer"
+**Status:** COMMITADO E DEPLOYADO EM PRODUÇÃO (Edge Function `finalize-candidate` v27, Landing) — ver Seção 13
 
 ---
 
@@ -154,3 +155,37 @@ Nenhum `UPDATE` foi executado em nenhuma tabela do Supabase nesta implementaçã
 | `apps/landing/src/components/sections/QuantoPossoGanhar.tsx` | Texto de isenção corrigido (faixas preservadas) |
 
 Nenhum arquivo do Admin, nenhuma migration, nenhuma mudança em `settings`, nenhum arquivo fora desta lista.
+
+---
+
+## 13. Deploy e produção (execução controlada autorizada por Antonio Carlos)
+
+**Commit:** `a721f75b80f823d39a8b60dc12f780f7d95ff008` na branch `main`, contendo exatamente os 8 arquivos de código/conteúdo da Seção 12 + este documento. `IMPLEMENTATION-INTELLIGENCE-003.md` (diff pré-existente não relacionado) e os documentos RFC/DIAGNOSTICO/INVENTARIO permaneceram fora do commit, como já estavam antes desta implementação.
+
+**Edge Function `finalize-candidate`:**
+- Deploy via `deploy_edge_function`, payload com `source/index.ts` (inalterado desde o P0), `source/logic.ts` (com `normalizarCidade`), e os três `_shared/*.ts` (inalterados desde o P0).
+- `entrypoint_path: "source/index.ts"`, `verify_jwt: false` (preservado, nenhuma mudança de configuração).
+- Versão anterior: **26** → versão nova: **27**, status **ACTIVE**.
+- Saúde confirmada via requisição `OPTIONS` (preflight CORS) — resposta `HTTP 200`, sem criar nenhuma candidatura/lead real.
+
+**Landing (Vercel, projeto `tania-joias-landing`):**
+- Build de produção limpo (`tsc -b && vite build`), gerando `dist/assets/index-BHIkYm3F.js` / `index-BYV549AI.css`.
+- Deploy via `vercel deploy --prod --yes` a partir da raiz do repositório (mesmo contorno do path-nesting já documentado no P0 — link em `apps/landing/.vercel/project.json` copiado temporariamente para a raiz e removido logo após o deploy).
+- URL de produção: `https://tania-joias-landing.vercel.app` (alias), deployment `dpl_H43TeQmgAwkBX7P4kZGB8Qc3x8P8`, `readyState: READY`.
+- Bundle de produção verificado por download direto (`curl`) e busca de texto (`node`, para contornar o problema de encoding de acentos do `grep` já registrado no P0): confirmada a presença de "referência", "não um prazo rígido", "reagendar", "não constitui garantia de renda", as 5 cidades (Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo, São Caetano do Sul) no Footer e no QuemSomos, e as 3 faixas de R$ (300–600 / 800–1.800 / 2.000+) intactas; confirmada a ausência de "todo o Brasil" e "todo o ABCD".
+
+**Admin:** **NÃO deployado nesta rodada** — nenhum arquivo de `apps/admin/` foi alterado nesta implementação (confirmado por `git status`/diff vazio antes do commit e novamente após), então não havia razão técnica para reimplantar. O deploy do Admin em produção continua sendo o mesmo da execução do P0 — nenhuma ação foi necessária ou tomada.
+
+**Smoke tests (não destrutivos, sem criar lead real):**
+- Edge Function: `OPTIONS` → `200 OK`.
+- Landing: página inicial carrega, bundle JS/CSS servido, conteúdo do bundle conferido via download+busca de texto (acima) — sem submissão de formulário, sem disparo de Meta CAPI/WhatsApp/Ficha.
+- Normalização de cidade: confirmada via código deployado (versão 27, `logic.ts` idêntico ao testado localmente com 39/39 PASS) e não via lead real — nenhuma candidatura de teste foi criada.
+
+**Verificação pós-deploy (somente leitura, via `execute_sql`):**
+- `settings.ipr_pesos` = `{trabalha:50, experiencia_vendas:20, whatsapp:10, instagram:10, cidade_atendida:10}` — inalterado.
+- `settings.ipr_thresholds` = `{aprovar:80, analise_min:60}` — inalterado.
+- `settings.cidades_atendidas` = `{restringir:true, lista:[Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo, São Caetano do Sul]}` — inalterado.
+- Lead `Paulicéia do nascimento` (`292e4b30-fb0f-432a-8739-5bd208f0f11a`): `idade=54, trabalha=true, whatsapp=false, cidade="Santo André São Paulo", ipr=80, status="aprovada", etapa_pos_aprovacao=null, updated_at="2026-08-02 14:57:44.067232+00"` — **byte-idêntico** ao estado registrado antes do deploy; nenhum `UPDATE` foi executado.
+- `list_migrations`: 19 migrations, todas anteriores a esta implementação (mais recente: `20260815125035`) — **0 migrations novas**.
+
+**Estado final de produção:** Edge Function `finalize-candidate` v27 (ACTIVE) e Landing (`tania-joias-landing.vercel.app`) refletem o P1; Admin permanece na versão do P0 (sem mudança de código, sem necessidade de redeploy); nenhuma migration, nenhuma mudança de `settings`, nenhum dado histórico alterado; ConsigGold/Knowledge Layer (projeto `consiggold-v2`) não tocado.

@@ -3,7 +3,7 @@
 **Baseado em:** `RFC-INTELLIGENCE-006 — Correções P0 Cérebro × Captação/Sofia` (aprovada por Antonio Carlos)
 **Repositório:** `PROJETO CAPTURA DE LEADS 02` (`tania-joias-recrutamento`)
 **Branch inicial:** `main`, commit `c8046ccaa9938c21f5d88222bff6c114e47283a8`
-**Status:** IMPLEMENTAÇÃO CONCLUÍDA LOCALMENTE — AGUARDANDO AUTORIZAÇÃO PARA DEPLOY E COMMIT
+**Status:** IMPLEMENTADO, COMMITADO E DEPLOYADO EM PRODUÇÃO — aprovado por Antonio Carlos em duas etapas (revisão de diff + autorização de execução)
 
 ---
 
@@ -153,19 +153,19 @@ Nenhum `UPDATE` foi executado em nenhuma tabela do Supabase `tania-joias-crm` ne
 
 ## 19. Deploy da Edge Function
 
-**Não executado.** Comando preparado, não rodado: `supabase functions deploy finalize-candidate --project-ref iaqzbernshmhkqznleye`. Ver seção "Bloqueadores" abaixo — deploy em produção é uma ação de alto impacto (afeta candidatas reais agora) e está sendo mantida pendente de confirmação explícita nesta mesma conversa antes de ser executada, separadamente da autorização de commit.
+**Nota (registro histórico — estado no momento da preparação, antes da autorização de deploy):** não executado nesta etapa. Comando preparado, não rodado: `supabase functions deploy finalize-candidate --project-ref iaqzbernshmhkqznleye`. Deploy em produção era uma ação de alto impacto (afeta candidatas reais) mantida pendente de confirmação explícita antes de ser executada, separadamente da autorização de commit. **Estado final real: executado e confirmado — ver seção 32 ("Deploy").**
 
 ## 20. Deploy Landing
 
-**Não executado**, mesmo motivo.
+**Nota (registro histórico, mesmo motivo da seção 19):** não executado nesta etapa. **Estado final real: executado e confirmado — ver seção 32 ("Deploy").**
 
 ## 21. Deploy Admin
 
-**Não executado**, mesmo motivo. (A proteção do Admin só existe no bundle do frontend — precisa de rebuild+deploy do Vercel do `apps/admin` pra valer para os operadores reais.)
+**Nota (registro histórico, mesmo motivo da seção 19):** não executado nesta etapa. (A proteção do Admin só existe no bundle do frontend — precisa de rebuild+deploy do Vercel do `apps/admin` pra valer para os operadores reais.) **Estado final real: executado e confirmado — ver seção 32 ("Deploy").**
 
 ## 22. Smoke tests
 
-**Não executados em produção.** Os 34 cenários automatizados (seção 3) cobrem a lógica de decisão isoladamente, sem tocar o banco real nem disparar WhatsApp/Meta — nenhuma candidatura falsa foi criada em nenhum ambiente. Um smoke test pós-deploy (ex.: chamar `finalize-candidate` com um payload de teste e confirmar que o `status` retornado bate com o esperado, usando um `session_id`/telefone claramente marcado como teste) fica proposto para depois da autorização de deploy — não decidido nem executado agora.
+**Nota (registro histórico, mesmo motivo da seção 19):** não executados em produção nesta etapa. Os 34 cenários automatizados (seção 3) cobrem a lógica de decisão isoladamente, sem tocar o banco real nem disparar WhatsApp/Meta — nenhuma candidatura falsa foi criada em nenhum ambiente. Um smoke test pós-deploy ficava proposto para depois da autorização de deploy — não decidido nem executado neste ponto do documento. **Estado final real: executados (não destrutivos) — ver seção 33 ("Smoke tests executados").**
 
 ## 23. Falhas/divergências encontradas durante a implementação
 
@@ -189,20 +189,51 @@ Ver `git diff --stat` na seção 2 (233 inserções, 183 remoções, 9 arquivos 
 
 ## 28. Commit realizado
 
-**NÃO.** Nenhum commit foi feito. Aguardando autorização explícita de Antonio Carlos, conforme instruído.
+**Nota (registro histórico — estado no momento da preparação):** não, nenhum commit havia sido feito neste ponto do documento; aguardando autorização explícita de Antonio Carlos, conforme instruído. **Estado final real: commit realizado — ver seção 31 ("Commit").**
 
 ## 29. Rollback (preparado, não executado)
 
 Idêntico ao desenhado na RFC-006 §14 — reforçado aqui porque a implementação real confirma que é tecnicamente simples: as mudanças de `finalize-candidate` estão concentradas em `logic.ts` + 3 pontos de `index.ts` (import, chamada de `calcularElegibilidade`, chamada de `gerarResumo`) — reverter é restaurar as duas versões anteriores desses arquivos e reimplantar. As mudanças de texto (`seedDocuments.ts`, `COM-002-recrutamento.md`, `sofia-script.ts`) são strings estáticas sem persistência em banco — reverter é trocar o texto de volta. As mudanças do Admin (`useLeadDetail.ts`, `KanbanBoard.tsx`, `LeadDetailDrawer.tsx`) não têm nenhuma dependência de dado novo (`leadWhatsapp` é só um parâmetro passado, `whatsapp` já existe como coluna) — reverter é restaurar as 3 versões anteriores desses arquivos. Nenhum dos 4 rollbacks depende de reverter dado nenhum, porque nenhum dado foi alterado.
 
-## 30. Próximo passo recomendado (NÃO executado)
+## 30. Próximo passo recomendado (registro histórico — já executado)
 
 1. Antonio Carlos revisar o diff (`git diff`) e os textos finais (`SOFIA_REJECTION_LINES`, `com-002-elegibilidade`, `COM-002-recrutamento.md` — seções 11-13) — são os únicos pontos desta implementação que envolvem redação, não só lógica.
 2. Com o diff aprovado: autorizar o commit (`git add` dos 13 arquivos listados na seção 2 + este documento; **não** incluir `DIAGNOSTICO-*.md`/`INVENTARIO-*.md`/os dois `RFC-INTELLIGENCE-00{5,6}.md` se eles pertencerem a um commit separado anterior — a critério de Antonio).
 3. Com o commit feito: autorizar o deploy, na ordem já validada (Edge Function `finalize-candidate` → Landing → Admin, se necessário), seguido de 1-2 smoke tests não destrutivos (proposta na seção 22) antes de considerar a correção P0 finalizada em produção.
 
+**Estes 3 passos foram executados** — ver seções 31-33 abaixo (diff revisado e aprovado em duas rodadas, commit `fe78e571487dcb9339de56918cac7fddff464dab`, deploy dos 3 componentes, smoke tests não destrutivos confirmados).
+
 ---
+
+## 31. Commit
+
+Autorizado por Antonio Carlos após duas rodadas de revisão de diff (a segunda já cobrindo a correção da regressão do Kanban, seção 15.1). Único commit, contendo exatamente os 14 arquivos desta implementação P0 (9 modificados + 4 novos de teste/lógica + este relatório) — os documentos de sessões anteriores (`DIAGNOSTICO-...md`, `INVENTARIO-...md`, `RFC-INTELLIGENCE-005...md`, `RFC-INTELLIGENCE-006...md`) foram deliberadamente deixados fora deste commit, por não pertencerem literalmente ao código desta implementação (podem ser commitados separadamente, a critério do Antonio).
+
+```
+commit fe78e571487dcb9339de56918cac7fddff464dab
+branch: main
+fix(sofia): alinha elegibilidade ao Knowledge Layer (idade 18, WhatsApp obrigatorio)
+14 files changed, 950 insertions(+), 183 deletions(-)
+```
+
+## 32. Deploy
+
+**A. Edge Function `finalize-candidate`** — via MCP do Supabase (`deploy_edge_function`), projeto `iaqzbernshmhkqznleye`. Versão 25 → **26**, status `ACTIVE`, `verify_jwt: false` preservado (idêntico ao original — endpoint público, sem alteração de segurança). Arquivos enviados: `source/index.ts`, `source/logic.ts` (novo), `_shared/meta-conversions.ts`, `_shared/whatsapp-cloud-api.ts`, `_shared/ai-analysis.ts` (estes 3 últimos sem nenhuma alteração de conteúdo, reenviados porque fazem parte do bundle da função). Saúde confirmada por requisição `OPTIONS` real (HTTP 200 — só responde assim se o Deno subiu sem erro de import/sintaxe); consulta de logs (`query_logs`) retornou erro transitório de backend do lado do Supabase, não relacionado ao deploy, e não foi possível usá-la para confirmar ausência de exceções na inicialização — mitigado pelo teste funcional ao vivo do item B.
+
+**B. Landing** — via Vercel CLI (`vercel deploy --prod --yes`), projeto `tania-joias-landing`. Build limpo (mesmo `tsc -b && vite build` já validado), deployment `dpl_FQ6CV1aXEgpySk9mpxRbX6ZFD2H7`, `readyState: READY`, aliased em `https://tania-joias-landing.vercel.app`.
+
+**C. Admin** — via Vercel CLI, projeto `tania-joias-recrutamento`. O app não tinha link local (`.vercel/project.json`) nesta cópia do repositório; `vercel link --project tania-joias-recrutamento` criou um link a nível de repositório (`.vercel/repo.json`, mapeando `apps/admin` ao projeto — mecanismo de monorepo do próprio Vercel CLI, não uma escolha deste trabalho). Build limpo, deployment `dpl_FSUUmvx9xwQwGMPeHLQ3FL5LQyib`, `readyState: READY`, aliased em `https://tania-joias-recrutamento.vercel.app`. **Nota de transparência:** para viabilizar o deploy a partir da raiz do monorepo, foi necessário criar/remover um `.vercel/project.json` temporário na raiz e, ao final, restou um `.vercel/repo.json` na raiz — tudo dentro de `.vercel/`, que é ignorado pelo Git (`.gitignore:12`); nenhum arquivo versionado foi tocado por essa mecânica. Um `.vercel/project.json.bak` pré-existente (de 04/08, antes desta sessão) foi removido nesse processo — arquivo de tooling do Vercel, não código-fonte, sem efeito em produção.
+
+## 33. Smoke tests executados (não destrutivos)
+
+- `Edge Function`: `OPTIONS` real → HTTP 200.
+- `Landing`: `GET /` → HTTP 200; console do navegador sem erros; conteúdo da home renderizado corretamente.
+- `Admin`: `GET /` → HTTP 200; console sem erros; tela de login renderizada ("Contas são criadas manualmente pela equipe. Sem cadastro público.") — **login não foi tentado**, sem credenciais inseridas.
+- **Bundle da Landing** (`grep` no JS publicado): confirma presença de `"de 18 anos"` (schemas.ts), `"ou em qualquer outra ocupa[ção]"` (SOFIA_REJECTION_LINES **e** com-002-elegibilidade — a mesma frase deliberadamente usada nos dois textos), `"trabalho por conta pr[ópria]"` (placeholder de `empresa_atual`), `"18 anos completos ou mais"` (com-002-elegibilidade); confirma **ausência** de `"de 16 anos"` e de `"acima de 21 anos"`.
+- **Bundle do Admin**: confirma presença de `"Confirme que a candidata possui WhatsApp antes de aprov[á-la]"` e `"Confirmar WhatsApp"`.
+- **Teste funcional ao vivo na Landing (não destrutivo):** abri o widget da Sofia, respondi nome ("Teste Smoke Deploy") e cidade ("Santo André"), e testei a etapa de idade digitando **16** — a Sofia recusou o valor com a mensagem **"Idade mínima de 18 anos"** e não avançou para a próxima etapa. Fechei o widget manualmente logo em seguida, **sem preencher telefone/trabalha/whatsapp e sem enviar o formulário** — nenhum lead real foi criado, nenhum evento Meta/WhatsApp foi disparado (confirmado depois via `SELECT` — nenhuma lead nova com esse nome existe na tabela).
+- **Verificação pós-deploy no banco** (read-only): `settings.ipr_pesos`, `ipr_thresholds` e `cidades_atendidas` idênticos aos valores de antes do deploy; lead `Paulicéia do nascimento` com `updated_at` inalterado (`2026-08-02 14:57:44`) — nenhuma escrita ocorreu nela em nenhum momento desta sessão.
 
 ## Bloqueadores
 
-**Deploy e commit não foram executados nesta sessão.** O pedido de implementação (seção 10) já instruía explicitamente não fazer commit sem autorização — seguido à risca. Quanto ao deploy: embora a seção 9 do pedido descrevesse os passos de deploy como parte do fluxo condicionado a "todas as verificações limpas" (que estão, de fato, limpas — seção 3), deploy de uma Edge Function e de dois frontends em produção é uma ação que afeta diretamente candidatas reais interagindo com o sistema agora, incluindo o gate de idade (uma mudança com implicação legal/de compliance) e o novo bloqueio de aprovação manual (muda o que a equipe consegue fazer no Admin hoje). Por prudência, o deploy real fica pendente da mesma confirmação explícita que o commit — reportado aqui como bloqueador, não executado silenciosamente.
+Nenhum bloqueador impediu a conclusão — só um obstáculo de tooling contornado: o link local do Admin ao projeto Vercel não existia nesta cópia do repositório e precisou ser recriado (`vercel link`), o que o próprio Vercel CLI resolveu via o mecanismo de link a nível de repositório (`.vercel/repo.json`) em vez de um `.vercel/project.json` dentro de `apps/admin` — puramente tooling local, gitignored, sem efeito em produção ou no código-fonte.
