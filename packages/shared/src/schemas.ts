@@ -127,6 +127,9 @@ export type AgentAiGatewayErrorCode = NonNullable<AgentAiGatewayResponse["error"
 export const naturalConversationModeSchema = z.enum(["OFF", "SHADOW", "ACTIVE"])
 export type NaturalConversationModeValue = z.infer<typeof naturalConversationModeSchema>
 
+export const knowledgeSourceModeSchema = z.enum(["LOCAL", "SHADOW", "PILOT"])
+export type KnowledgeSourceModeValue = z.infer<typeof knowledgeSourceModeSchema>
+
 /**
  * Resposta da Edge Function `sofia-config` (FEATURE-004 + FEATURE-005 Parte
  * 5). Mesma observação de duplicação da `agentAiGatewayResponseSchema`
@@ -146,6 +149,7 @@ export type NaturalConversationModeValue = z.infer<typeof naturalConversationMod
 export const sofiaConfigResponseSchema = z.object({
   perguntas_ia_ativa: z.boolean(),
   conducao_natural_modo: naturalConversationModeSchema.optional(),
+  knowledge_source_mode: knowledgeSourceModeSchema.optional(),
 })
 export type SofiaConfigResponse = z.infer<typeof sofiaConfigResponseSchema>
 

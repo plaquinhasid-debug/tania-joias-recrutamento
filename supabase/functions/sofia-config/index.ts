@@ -18,6 +18,7 @@
 //   perguntas_ia_ativa    -> false
 //   conducao_natural_modo -> "OFF"
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { resolveKnowledgeSourceMode } from "./knowledge-source.ts"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -66,20 +67,27 @@ Deno.serve(async (req) => {
     const { data: settingRows } = await supabase
       .from("settings")
       .select("chave, valor")
-      .in("chave", ["sofia_perguntas_ia_ativa", "sofia_conducao_natural"])
+      .in("chave", ["sofia_perguntas_ia_ativa", "sofia_conducao_natural", "sofia_knowledge_source"])
 
     const perguntasRow = settingRows?.find((r) => r.chave === "sofia_perguntas_ia_ativa")
     const conducaoRow = settingRows?.find((r) => r.chave === "sofia_conducao_natural")
+    const knowledgeSourceRow = settingRows?.find((r) => r.chave === "sofia_knowledge_source")
 
     const perguntasIaAtiva = Boolean((perguntasRow?.valor as SofiaPerguntasIaAtiva | undefined)?.ativa)
     const conducaoNaturalModo = resolveConducaoNaturalModo(conducaoRow?.valor)
+    const knowledgeSourceMode = resolveKnowledgeSourceMode(knowledgeSourceRow?.valor)
 
     return jsonResponse({
       perguntas_ia_ativa: perguntasIaAtiva,
       conducao_natural_modo: conducaoNaturalModo,
+      knowledge_source_mode: knowledgeSourceMode,
     })
   } catch (err) {
     console.error("[sofia-config] falha ao ler configuração, caindo em desativado", err)
-    return jsonResponse({ perguntas_ia_ativa: false, conducao_natural_modo: "OFF" })
+    return jsonResponse({
+      perguntas_ia_ativa: false,
+      conducao_natural_modo: "OFF",
+      knowledge_source_mode: "SHADOW",
+    })
   }
 })

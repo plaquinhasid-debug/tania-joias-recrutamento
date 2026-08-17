@@ -9,6 +9,7 @@ import {
   type FinalizeCandidatePayload,
   type FinalizeCandidateResponse,
   type GetFichaResponse,
+  type KnowledgeSourceModeValue,
   type NaturalConversationModeValue,
 } from "@tania-joias/shared"
 
@@ -173,8 +174,13 @@ export async function fetchSofiaConfig(): Promise<{
    * OFF" de "não deu pra saber, ficou OFF por segurança".
    */
   conducaoNaturalModo: NaturalConversationModeValue | undefined
+  knowledgeSourceMode: KnowledgeSourceModeValue
 }> {
-  const FALLBACK = { perguntasIaAtiva: false, conducaoNaturalModo: undefined }
+  const FALLBACK = {
+    perguntasIaAtiva: false,
+    conducaoNaturalModo: undefined,
+    knowledgeSourceMode: "SHADOW" as const,
+  }
   try {
     const invokePromise = supabase.functions.invoke("sofia-config", { body: {} })
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -192,6 +198,7 @@ export async function fetchSofiaConfig(): Promise<{
     return {
       perguntasIaAtiva: parsed.data.perguntas_ia_ativa,
       conducaoNaturalModo: parsed.data.conducao_natural_modo,
+      knowledgeSourceMode: parsed.data.knowledge_source_mode ?? "SHADOW",
     }
   } catch (err) {
     console.warn("[sofia] falha ao buscar configuração, usando fallback seguro", err)
