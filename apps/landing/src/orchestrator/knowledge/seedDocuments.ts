@@ -27,6 +27,12 @@
  * foi implementado como regra executável em nenhum ponto do sistema (RFC-
  * INTELLIGENCE-005/006), e não deve virar gate agora.
  *
+ * `com-001-consignacao` está na versão 2 (RFC-INTELLIGENCE-007): o texto
+ * comunicava o ciclo de "30 dias" de forma mais rígida do que o Knowledge
+ * Layer oficial, que trata o prazo como referência flexível, sujeita a
+ * reagendamento combinado — corrigido junto com `docs/knowledge/COM-001...md`
+ * v1.1. Nenhuma lógica de prazo/timer foi criada — é só correção de texto.
+ *
  * TODOS os documentos abaixo são `visibility: "public"` — é conteúdo
  * seguro pra candidata ler ou pra entrar num prompt de IA. A seção
  * "Critério de reprovação" do COM-002 v1.1 (só resta "desempregada")
@@ -48,12 +54,12 @@ export const SEED_KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     titulo: "Como funciona a consignação",
     categoria: "CONSIGNACAO",
     conteudo:
-      "A revendedora recebe um mostruário de peças sem pagar nada adiantado e tem 30 dias para revender esse mostruário. Ao final dos 30 dias, ela faz o acerto: paga à Tania Joias apenas as peças que vendeu (já com a comissão descontada) e devolve as peças que não vendeu. Em seguida recebe um novo mostruário e o ciclo recomeça.",
+      "A revendedora recebe um mostruário de peças sem pagar nada adiantado. O acerto costuma acontecer em torno de 30 dias — esse período é uma referência, não um prazo rígido: pode ser antecipado, adiado ou reagendado, desde que combinado com a equipe. No acerto, ela paga à Tania Joias apenas as peças que vendeu (já com a comissão descontada) e devolve as peças que não vendeu. Em seguida recebe um novo mostruário e o ciclo recomeça.",
     tags: ["consignacao", "mostruario", "ciclo"],
-    palavrasChave: ["consignacao", "mostruario", "prazo", "30 dias", "acerto", "devolucao", "pagar antes", "adiantado"],
+    palavrasChave: ["consignacao", "mostruario", "prazo", "30 dias", "acerto", "devolucao", "pagar antes", "adiantado", "reagendar", "prazo flexivel"],
     prioridade: 9,
     visibility: "public",
-    versao: 1,
+    versao: 2,
     ativo: true,
     criadoEm: AGORA,
     atualizadoEm: AGORA,

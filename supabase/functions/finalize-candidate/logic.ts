@@ -58,11 +58,47 @@ export type SofiaIaAtiva = { ativa: boolean }
 export type WhatsappAprovacaoAutomaticaAtiva = { ativa: boolean }
 export type WhatsappFichaAutomaticaAtiva = { ativa: boolean }
 
+/**
+ * RFC-INTELLIGENCE-007 — normalização CONSERVADORA de nome de cidade.
+ * Único objetivo: reconhecer variações inequívocas de escrita da MESMA
+ * cidade (maiúscula/minúscula, acento, espaços repetidos, vírgula/hífen
+ * antes da UF, sufixo "SP"/"São Paulo"). NUNCA aproxima nomes de cidades
+ * diferentes entre si — não há distância de edição, não há similaridade,
+ * só transformações determinísticas e reversíveis de formatação. Depois
+ * dessas transformações, o match continua sendo por IGUALDADE EXATA de
+ * string (ver `isCidadeAtendida` abaixo) — é isso que garante que "São
+ * Bernardo do Campo" nunca vira "São Caetano do Sul": são strings
+ * diferentes antes e depois da normalização, então nunca batem entre si.
+ *
+ * Caso real que motivou isto: a lead `Paulicéia do nascimento` tem
+ * `cidade = "Santo André São Paulo"` no banco — não batia com "Santo André"
+ * da lista antes desta correção. Não corrigido retroativamente (RFC-007,
+ * decisão do dono) — só vale para candidaturas novas a partir de agora.
+ */
+export function normalizarCidade(bruto: string): string {
+  const semAcento = bruto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+  // Vírgula e hífen usados como separador entre cidade e UF (ex.: "Santo
+  // André, SP" / "Santo André - SP") viram espaço, depois espaços repetidos
+  // colapsam num só.
+  const espacosUnicos = semAcento.replace(/[,-]/g, " ").replace(/\s+/g, " ").trim()
+  // Sufixo de UF inequívoco (só no FINAL da string, como palavra isolada
+  // precedida por espaço — nunca no meio do nome, nunca sem espaço antes).
+  // "sp"/"sao paulo" sozinho (sem nada antes) não é afetado por este passo
+  // (não há `\s+` antes do início da string), então "São Paulo" digitado
+  // como cidade continua "sao paulo" e não bate com nenhuma das 5 cidades.
+  return espacosUnicos.replace(/\s+(sp|sao paulo)$/, "").trim()
+}
+
 export function isCidadeAtendida(cidade: string | undefined, config: CidadesAtendidas): boolean {
   if (!config.restringir) return true
   if (!cidade) return false
-  const alvo = cidade.trim().toLowerCase()
-  return config.lista.some((c) => c.trim().toLowerCase() === alvo)
+  const alvo = normalizarCidade(cidade)
+  if (!alvo) return false
+  return config.lista.some((c) => normalizarCidade(c) === alvo)
 }
 
 /**

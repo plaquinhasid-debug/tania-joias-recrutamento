@@ -68,9 +68,9 @@ export function QuantoPossoGanhar() {
 
         <Reveal delay={0.2}>
           <p className="mt-8 text-center text-xs text-muted-foreground">
-            Valores ilustrativos, baseados no histórico de revendedoras da Tania Joias.
-            Não é garantia de ganhos — o resultado varia conforme dedicação, região e
-            esforço de divulgação.
+            Valores de referência, baseados na experiência da operação da Tania Joias. O
+            ganho real depende do volume vendido e da comissão aplicável, e não constitui
+            garantia de renda.
           </p>
         </Reveal>
       </div>

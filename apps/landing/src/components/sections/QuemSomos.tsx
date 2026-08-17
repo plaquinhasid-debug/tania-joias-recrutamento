@@ -40,7 +40,7 @@ const BENEFICIOS = [
   },
 ]
 
-const INDICADORES = ["Produtos Premium", "Suporte Especializado", "Atendimento em todo o ABCD"]
+const INDICADORES = ["Produtos Premium", "Suporte Especializado", "Atendimento local personalizado"]
 
 export function QuemSomos({ onOpenSofia }: QuemSomosProps) {
   return (
@@ -57,6 +57,11 @@ export function QuemSomos({ onOpenSofia }: QuemSomosProps) {
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
             Oferecemos produtos de alta qualidade, treinamento completo e suporte em todas as
             etapas para que você venda com segurança, mesmo sem experiência.
+          </p>
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            Atendemos atualmente Mauá, Ribeirão Pires, Santo André, São Bernardo do Campo e São
+            Caetano do Sul. Nossa área de atendimento pode ser ampliada conforme a logística da
+            empresa.
           </p>
         </Reveal>
 

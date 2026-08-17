@@ -151,5 +151,22 @@ export async function runComElegibilidadeCorrectionChecks(): Promise<KnowledgeCo
     )
   }
 
+  // RFC-INTELLIGENCE-007, cenário K — "quanto tempo tenho pra vender o
+  // mostruário?" -> documento encontrado deve comunicar 30 dias como
+  // referência flexível, nunca como prazo rígido.
+  {
+    const docs = await engine.searchByQuestion("Quanto tempo eu tenho pra vender o mostruário antes do acerto?")
+    const encontrado = docs.some((d) => d.id === "com-001-consignacao")
+    const conteudo = docs.find((d) => d.id === "com-001-consignacao")?.conteudo ?? ""
+    check("K. Pergunta sobre prazo encontra com-001-consignacao", encontrado, `docs encontrados: ${docs.map((d) => d.id).join(", ")}`)
+    check("K. Conteúdo menciona 'referência' (não prazo fixo)", /refer[êe]ncia/i.test(conteudo), `conteudo="${conteudo}"`)
+    check(
+      "K. Conteúdo afirma explicitamente que não é prazo rígido",
+      /n[ãa]o.{0,10}prazo r[íi]gido/i.test(conteudo),
+      `conteudo="${conteudo}"`,
+    )
+    check("K. Conteúdo menciona possibilidade de reagendar", /reagend/i.test(conteudo), `conteudo="${conteudo}"`)
+  }
+
   return resultados
 }

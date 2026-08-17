@@ -8,8 +8,8 @@ export function Footer() {
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 text-center sm:flex-row sm:justify-between sm:text-left">
         <p className="font-display text-lg font-semibold text-foreground">Tania Joias</p>
         <p className="text-xs text-muted-foreground">
-          © {year} Tania Joias. Todos os direitos reservados. Semijoias premium para
-          revendedoras em todo o Brasil.
+          © {year} Tania Joias. Todos os direitos reservados. Atendemos atualmente Mauá,
+          Ribeirão Pires, Santo André, São Bernardo do Campo e São Caetano do Sul.
         </p>
         <a
           href="https://www.instagram.com/taniajoias_/"

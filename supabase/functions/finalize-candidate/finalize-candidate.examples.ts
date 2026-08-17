@@ -17,7 +17,10 @@ import {
   calcularIpr,
   classificarPerfil,
   decidirStatus,
+  isCidadeAtendida,
   isIdadeElegivel,
+  normalizarCidade,
+  type CidadesAtendidas,
   type IprPesos,
   type IprThresholds,
   type Payload,
@@ -184,6 +187,76 @@ export function runFinalizeCandidateLogicExamples(): FinalizeCandidateExampleRes
     const r = decidir(payload, true)
     check("Inelegível (idade) -> IPR total 0", 0, r.ipr)
     check("Inelegível (idade) -> breakdown zerado", { trabalha: 0, experiencia_vendas: 0, whatsapp: 0, instagram: 0, cidade_atendida: 0 }, r.breakdown)
+  }
+
+  // RFC-INTELLIGENCE-007 — normalização conservadora de cidade. `isCidadeAtendida`
+  // testado direto, contra a mesma lista real (5 cidades) usada em produção.
+  {
+    const config: CidadesAtendidas = {
+      restringir: true,
+      lista: ["Mauá", "Ribeirão Pires", "Santo André", "São Bernardo do Campo", "São Caetano do Sul"],
+    }
+
+    // Variações inequívocas que DEVEM ser reconhecidas como "Santo André".
+    check("Cidade 'Santo André' -> atendida", true, isCidadeAtendida("Santo André", config))
+    check("Cidade 'santo andre' (sem acento, minúsculo) -> atendida", true, isCidadeAtendida("santo andre", config))
+    check("Cidade 'SANTO ANDRÉ' (maiúsculo) -> atendida", true, isCidadeAtendida("SANTO ANDRÉ", config))
+    check("Cidade '  Santo   André  ' (espaços extras) -> atendida", true, isCidadeAtendida("  Santo   André  ", config))
+    check("Cidade 'Santo André SP' -> atendida", true, isCidadeAtendida("Santo André SP", config))
+    check("Cidade 'Santo André - SP' -> atendida", true, isCidadeAtendida("Santo André - SP", config))
+    check("Cidade 'Santo André, SP' -> atendida", true, isCidadeAtendida("Santo André, SP", config))
+    check(
+      "Cidade 'Santo André São Paulo' (caso real da Paulicéia) -> atendida",
+      true,
+      isCidadeAtendida("Santo André São Paulo", config),
+    )
+
+    // Outra cidade da lista, mesmas variações de UF.
+    check("Cidade 'São Bernardo do Campo' -> atendida", true, isCidadeAtendida("São Bernardo do Campo", config))
+    check(
+      "Cidade 'Sao Bernardo do Campo SP' -> atendida",
+      true,
+      isCidadeAtendida("Sao Bernardo do Campo SP", config),
+    )
+
+    // Fora da lista / vazio / ausente -> nunca atendida (sem gerar falso positivo).
+    check("Cidade 'Guarulhos' (fora da lista) -> não atendida", false, isCidadeAtendida("Guarulhos", config))
+    check("Cidade '' (string vazia) -> não atendida", false, isCidadeAtendida("", config))
+    check("Cidade ausente (undefined) -> não atendida", false, isCidadeAtendida(undefined, config))
+
+    // Nomes parecidos NUNCA podem colidir entre si — sem fuzzy matching.
+    check(
+      "'São Bernardo do Campo' não pode virar 'São Caetano do Sul' (cidades diferentes continuam diferentes)",
+      normalizarCidade("São Bernardo do Campo") !== normalizarCidade("São Caetano do Sul"),
+      true,
+    )
+    check(
+      "'São Bernardo' (nome incompleto) -> não atendida (não é igual a 'São Bernardo do Campo')",
+      false,
+      isCidadeAtendida("São Bernardo", config),
+    )
+    check(
+      "'São Paulo' (capital, não é uma das 5 cidades) -> não atendida, mesmo com o sufixo 'SP' embutido no próprio nome",
+      false,
+      isCidadeAtendida("São Paulo", config),
+    )
+  }
+
+  // Cidade fora da área nunca reprova sozinha — só deixa de somar os 10
+  // pontos, exatamente como já era antes desta correção (decisão do dono:
+  // cidade continua SCORE, nunca gate).
+  {
+    const payload = basePayload({
+      idade: 25,
+      whatsapp: true,
+      experiencia_vendas: true,
+      instagram: "@candidata",
+    })
+    const dentro = decidir(payload, true)
+    const fora = decidir(payload, false)
+    check("Cidade dentro da área -> IPR 100 (com cidade)", 100, dentro.ipr)
+    check("Cidade fora da área -> IPR 90 (só perde os 10 pontos de cidade)", 90, fora.ipr)
+    check("Cidade fora da área -> continua aprovada (90 >= 80), nunca reprovada só por isso", "aprovada", fora.status)
   }
 
   return resultados
