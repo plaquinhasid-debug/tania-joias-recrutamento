@@ -10,6 +10,7 @@
     "test:knowledge-shadow": "node --test tests/knowledge-shadow.test.mjs",
     "test:knowledge-source-setting": "node --test tests/knowledge-source-setting.test.mjs",
     "test:knowledge-pilot": "node --test tests/knowledge-pilot.test.mjs",
+    "test:response-composer-questions": "node --import ./tests/register-ts-loader.mjs --test tests/response-composer-questions.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",

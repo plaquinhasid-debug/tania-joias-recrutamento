@@ -85,7 +85,8 @@ function countWords(texto: string): number {
   return texto.trim().split(/\s+/).filter(Boolean).length
 }
 
-function countQuestions(texto: string): number {
+/** Exportada (além do uso interno abaixo) para o `ResponseComposer` decidir se uma transição interrogativa é segura — ver `checkNoQuestionWhenScriptQuestionExists` para o mesmo tipo de checagem cruzada. */
+export function countQuestions(texto: string): number {
   return (texto.match(/\?/g) ?? []).length
 }
 

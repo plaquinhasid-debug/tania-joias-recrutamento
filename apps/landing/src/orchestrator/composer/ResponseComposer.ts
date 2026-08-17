@@ -29,7 +29,7 @@
  */
 import { createLogger } from "../devLog"
 import { pickAcknowledgment, startsWithAcknowledgment } from "./AcknowledgmentLibrary"
-import { checkNoQuestionWhenScriptQuestionExists, runAllPolicies, runFinalPolicies } from "./ResponsePolicies"
+import { checkNoQuestionWhenScriptQuestionExists, countQuestions, runAllPolicies, runFinalPolicies } from "./ResponsePolicies"
 import { pickTransition } from "./TransitionLibrary"
 import type { AcknowledgmentKind, ComposeResponseInput, ComposedResponse, PolicyViolation } from "./types"
 import type { IntentType } from "../types"
@@ -107,7 +107,18 @@ export function composeResponse(input: ComposeResponseInput): ComposedResponse {
   log("Policies do conteúdo da IA:", { passed: contentPassed, violations: contentViolations })
 
   // FEATURE-002.1, Objetivo 1: transição interrogativa só quando não há pergunta do roteiro sendo anexada.
-  let transition = pickTransition({ avoid: input.lastTransition, requireDeclarative: hasScriptQuestion })
+  // IMPLEMENTATION-012B: e também só quando o próprio conteúdo da IA não já
+  // termina com uma pergunta sua — sem isso, uma transição interrogativa
+  // sorteada (2/6 da biblioteca) podia somar 2 perguntas na mensagem final e
+  // reprovar em `checkAtMostOneQuestion`, descartando uma resposta válida da
+  // IA por um motivo que nada tem a ver com o conteúdo em si (confirmado ao
+  // vivo: ~1/3 das respostas da IA termina com pergunta própria, por
+  // instrução do playbook).
+  const aiResponseHasQuestion = countQuestions(input.aiResponse) > 0
+  let transition = pickTransition({
+    avoid: input.lastTransition,
+    requireDeclarative: hasScriptQuestion || aiResponseHasQuestion,
+  })
 
   let aiContentUsed = contentPassed
   let content = contentPassed ? input.aiResponse.trim() : FALLBACK_BODY_BY_KIND[kind]
