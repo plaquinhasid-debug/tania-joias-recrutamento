@@ -124,3 +124,53 @@ confirmados em smoke test após autorização de configuração/deploy.
 Estado final: shadow implementado localmente, fonte candidata-visível permanece local, uma única chamada ao
 Claude, sem alterações em IPR, `finalize-candidate`, Admin, Landing textual ou progressão do wizard. Nenhum
 commit, push ou deploy foi realizado.
+
+## Commit e deploy controlado — 2026-08-17
+
+- Commit da implementação: `9337427d6e799763ac3c90b4c6d57a03838667d1`.
+- Mensagem: `feat(sofia): add Knowledge Service shadow mode`.
+- Push: não realizado.
+- Secrets configurados no `tania-joias-crm`, somente pelos nomes:
+  `CONSIGGOLD_SUPABASE_URL`, `CONSIGGOLD_SUPABASE_ANON_KEY` e `KNOWLEDGE_ALLOWED_ORIGINS`.
+- A chave do ConsigGold foi confirmada visualmente como `sb_publishable_…`; nenhuma `service_role`, senha de
+  banco ou chave administrativa foi usada.
+- Edge Function `knowledge-service`: deploy realizado exclusivamente no projeto `tania-joias-crm`. O endpoint
+  respondeu com sucesso após o deploy; o dashboard não apresentou um número de versão legível.
+- Landing: deploy não realizado. A integração Vercel identificou corretamente o projeto
+  `tania-joias-recrutamento`, mas recusou o deploy sem um pacote completo e verificável de arquivos. Não houve
+  contorno, deploy vazio, deploy do Admin nem push para acionar Git integration.
+
+### Smoke real do catálogo
+
+A chamada real, não destrutiva, retornou 9 documentos e somente os campos `knowledge_id`, `slug`, `category`,
+`title`, `content` e `version`. Todos estão na versão 1:
+
+- `comissao-por-faixa-de-valor-vendido`
+- `prazo-referencia-consignacao-30-dias`
+- `garantia-por-tipo-de-peca`
+- `cidades-atendidas`
+- `regra-atividade-profissional-candidata`
+- `idade-minima-candidata`
+- `criterios-contato-digital-candidata`
+- `experiencia-em-vendas-nao-obrigatoria`
+- `primeiro-mostruario-sem-caucao`
+
+Os três slugs internos (`racional-interno-criterio-profissional`, `construcao-de-confianca-historico` e
+`estrategia-giro-confiabilidade-financeira`) não apareceram. Também não apareceram `audiencia`, `company_id`,
+aprovações, autoria, origem, fonte ou campos de auditoria.
+
+### Segurança ao vivo
+
+- `GET ?audience=INTERNO`: HTTP 400 / `parameters_not_allowed`.
+- POST com `company_id`, `question`, `slug`, `status` ou `version`: HTTP 400 / `parameters_not_allowed`.
+- Método `PUT`: HTTP 405 / `method_not_allowed`.
+
+Essas rejeições acontecem no handler antes da chamada fixa à RPC; nenhum valor vira filtro do ConsigGold.
+
+### Estado final após deploy parcial
+
+O serviço remoto está ativo e validado, mas o bundle da Landing com a composição shadow ainda não foi
+deployado. Portanto, a candidata em produção continua no comportamento anterior/local, e a observabilidade
+shadow real da Landing ainda não executa em produção. A evidência de `remoteAvailable`, latência, slugs, versões
+e comparação permanece nos testes comportamentais locais até que um deploy verificável da Landing seja
+autorizado e concluído. Não houve candidatura real, `finalize-candidate`, Meta CAPI, WhatsApp ou ficha.
