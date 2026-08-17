@@ -5,6 +5,7 @@ import { mapPublicKnowledgeRpcResponse } from "../supabase/functions/knowledge-s
 import { createKnowledgeServiceHandler } from "../supabase/functions/knowledge-service/handler.ts"
 import { comparePilotKnowledge, parseRemoteKnowledgeItems, SHADOW_PILOT_SLUGS } from "../apps/landing/src/orchestrator/knowledge/ShadowKnowledgeCore.ts"
 import { ShadowKnowledgeRepository } from "../apps/landing/src/orchestrator/knowledge/ShadowKnowledgeRepository.ts"
+import { SEED_KNOWLEDGE_DOCUMENTS } from "../apps/landing/src/orchestrator/knowledge/seedDocuments.ts"
 
 const ORIGIN = "https://recrutamento.example"
 const publicRpcItem = (slug, n = 1) => ({ knowledge_id: `id-${slug}`, slug, categoria: "FAQ", titulo: `Título ${slug}`, conteudo: `Conteúdo ${slug}`, version_number: n })
@@ -12,6 +13,8 @@ const remoteItem = (slug, n = 1, content = `Conteúdo ${slug}`) => ({ knowledge_
 const doc = (id, conteudo = "conteúdo local") => ({ id, titulo: "título", categoria: "FAQ", conteudo, tags: [], palavrasChave: [], prioridade: 1, visibility: "public", versao: 1, ativo: true, criadoEm: "", atualizadoEm: "" })
 const repository = (documents, getAll = async () => documents) => ({ getAll, getById: async (id) => documents.find((item) => item.id === id) ?? null })
 const eventPromise = () => { let resolve; const promise = new Promise((done) => { resolve = done }); return { promise, observer: resolve } }
+const commissionKnowledge = SEED_KNOWLEDGE_DOCUMENTS.find((item) => item.id === "com-001-comissao")?.conteudo ?? ""
+const commissionDocumentation = fs.readFileSync(new URL("../docs/knowledge/COM-001-comissao-consignacao-garantia.md", import.meta.url), "utf8")
 
 test("mapper aceita catálogo válido com 9 itens públicos simulados", () => assert.equal(mapPublicKnowledgeRpcResponse(Array.from({ length: 9 }, (_, i) => publicRpcItem(`publico-${i}`))).length, 9))
 test("campo audiencia/INTERNO falha fechado", () => assert.throws(() => mapPublicKnowledgeRpcResponse([{ ...publicRpcItem("x"), audiencia: "INTERNO" }]), /Unexpected/))
@@ -20,6 +23,14 @@ test("payload remoto inválido falha fechado", () => assert.throws(() => parseRe
 test("payload remoto com auditoria é rejeitado", () => assert.throws(() => parseRemoteKnowledgeItems([{ ...remoteItem("x"), aprovado_por: "secret" }]), /unexpected/))
 test("allowlist contém exatamente os quatro slugs autorizados", () => assert.deepEqual([...SHADOW_PILOT_SLUGS].sort(), ["comissao-por-faixa-de-valor-vendido", "garantia-por-tipo-de-peca", "prazo-referencia-consignacao-30-dias", "primeiro-mostruario-sem-caucao"].sort()))
 test("outros KIs públicos não entram na comparação", () => assert.deepEqual(comparePilotKnowledge([doc("com-001-comissao")], [remoteItem("fora-do-piloto")]).remoteSlugs, []))
+test("comissão: R$ 299,00 pertence à faixa de 30%", () => assert.match(commissionKnowledge, /até R\$ 299,00 a comissão é de 30%/))
+test("comissão: R$ 299,01 inicia a faixa de 35%", () => assert.match(commissionKnowledge, /de R\$ 299,01 a R\$ 399,99 é de 35%/))
+test("comissão: R$ 399,99 permanece na faixa de 35%", () => assert.match(commissionDocumentation, /R\$ 299,01 a R\$ 399,99 \| 35%/))
+test("comissão: R$ 400,00 inicia a faixa de 40%", () => assert.match(commissionKnowledge, /a partir de R\$ 400,00 é de 40%/))
+test("comissão: redação ambígua antiga não permanece", () => {
+  assert.doesNotMatch(commissionKnowledge, /R\$ 299,00 a R\$ 399,00/)
+  assert.doesNotMatch(commissionDocumentation, /R\$ 299,00 a R\$ 399,00/)
+})
 
 test("erro remoto preserva exatamente getAll/getById locais", async () => {
   const localDocs = [doc("com-001-comissao")]; const observed = eventPromise()

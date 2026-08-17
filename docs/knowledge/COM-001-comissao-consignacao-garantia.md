@@ -1,8 +1,8 @@
 # Base de Conhecimento Oficial — Tania Joias
 Documento: COM-001
-Versão: 1.1 (correção: ciclo de ~30 dias comunicado como referência flexível, não prazo rígido — alinhado ao Knowledge Layer oficial, RFC-INTELLIGENCE-007)
+Versão: 1.2 (correção: limites das faixas de comissão alinhados ao Knowledge Layer oficial, IMPLEMENTATION-INTELLIGENCE-008)
 Revisado por: Antonio (proprietário)
-Status: Oficial — substitui a versão 1.0
+Status: Oficial — substitui a versão 1.1
 
 ---
 
@@ -32,7 +32,7 @@ A comissão varia de **30% a 40%**, dependendo do valor total vendido no acerto:
 | Valor vendido | Comissão |
 |---|---|
 | Até R$ 299,00 | 30% |
-| R$ 299,00 a R$ 399,00 | 35% |
+| R$ 299,01 a R$ 399,99 | 35% |
 | A partir de R$ 400,00 | 40% |
 
 Quanto mais a revendedora vende em cada ciclo, maior a porcentagem que ela recebe.
