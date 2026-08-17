@@ -15,6 +15,8 @@ import { extractKeywords } from "./extractKeywords"
 import { InMemoryKnowledgeRepository } from "./KnowledgeRepository"
 import type { KnowledgeRepository } from "./KnowledgeRepository"
 import { SEED_KNOWLEDGE_DOCUMENTS } from "./seedDocuments"
+import { ShadowKnowledgeRepository } from "./ShadowKnowledgeRepository"
+import { SupabaseRemoteKnowledgeRepository } from "./SupabaseRemoteKnowledgeRepository"
 import type { KnowledgeCategory, KnowledgeDocument, KnowledgeSearchQuery } from "./types"
 
 const log = createLogger("[KnowledgeEngine]")
@@ -237,6 +239,10 @@ export class KnowledgeEngine {
       .slice(0, limite)
       .map((r) => r.documento)
 
+    // Fire-and-forget: o resultado local já está decidido e a candidata nunca
+    // espera nem recebe conhecimento remoto nesta fase.
+    this.repository.observeQuestion?.(pergunta, resultado)
+
     log("Busca por pergunta realizada")
     log("Pergunta:", pergunta)
     log("Palavras-chave extraídas:", keywords)
@@ -253,5 +259,6 @@ export class KnowledgeEngine {
  * Supabase no futuro = trocar só esta função (ver `KnowledgeRepository.ts`).
  */
 export function createDefaultKnowledgeEngine(): KnowledgeEngine {
-  return new KnowledgeEngine(new InMemoryKnowledgeRepository(SEED_KNOWLEDGE_DOCUMENTS))
+  const local = new InMemoryKnowledgeRepository(SEED_KNOWLEDGE_DOCUMENTS)
+  return new KnowledgeEngine(new ShadowKnowledgeRepository(local, new SupabaseRemoteKnowledgeRepository()))
 }

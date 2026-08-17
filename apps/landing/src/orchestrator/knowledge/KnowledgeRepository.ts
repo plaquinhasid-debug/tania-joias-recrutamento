@@ -17,6 +17,8 @@ import type { KnowledgeDocument } from "./types"
 export interface KnowledgeRepository {
   getAll(): Promise<KnowledgeDocument[]>
   getById(id: string): Promise<KnowledgeDocument | null>
+  /** Hook opcional de observabilidade; nunca participa do resultado retornado pela busca. */
+  observeQuestion?(question: string, localResults: KnowledgeDocument[]): void
 }
 
 /**
