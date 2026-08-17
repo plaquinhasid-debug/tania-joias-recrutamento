@@ -6,6 +6,7 @@ import type { RemoteKnowledgeItem } from "./ShadowKnowledgeCore.ts"
 const REMOTE_TIMEOUT_MS = 2_500
 
 export interface ShadowKnowledgeEvent {
+  mode: "SHADOW"
   executed: true
   remoteAvailable: boolean
   latencyMs: number
@@ -67,6 +68,7 @@ export class ShadowKnowledgeRepository implements KnowledgeRepository {
           version: doc.versao,
         }))
         this.observer({
+          mode: "SHADOW",
           executed: true,
           remoteAvailable: true,
           latencyMs: Date.now() - startedAt,
@@ -75,6 +77,7 @@ export class ShadowKnowledgeRepository implements KnowledgeRepository {
       })
       .catch((error: unknown) => {
         this.observer({
+          mode: "SHADOW",
           executed: true,
           remoteAvailable: false,
           latencyMs: Date.now() - startedAt,

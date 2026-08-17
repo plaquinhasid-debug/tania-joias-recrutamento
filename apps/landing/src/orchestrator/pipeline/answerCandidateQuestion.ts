@@ -19,6 +19,8 @@ import { createLogger } from "../devLog"
 import { createDefaultKnowledgeEngine } from "../knowledge/KnowledgeEngine"
 import type { KnowledgeDocument } from "../knowledge/types"
 import type { IntentType } from "../types"
+import type { KnowledgeSourceModeValue } from "@tania-joias/shared"
+import type { KnowledgeEngine } from "../knowledge/KnowledgeEngine"
 
 const log = createLogger("[Pipeline][answerCandidateQuestion]")
 
@@ -36,6 +38,10 @@ export interface AnswerCandidateQuestionInput {
   /** Override do gateway (ex.: um fake que sempre lança, pra testar o Objetivo 6) — sem isso, usa o gateway real (`createServerBackedAIGateway`), nunca o stub que só lança erro. */
   aiGateway?: AIGateway
   intent?: IntentType
+  /** Modo efetivo carregado uma vez no início da conversa; ausência é SHADOW. */
+  knowledgeSourceMode?: KnowledgeSourceModeValue
+  /** Injeção restrita a testes comportamentais. */
+  knowledgeEngine?: KnowledgeEngine
 }
 
 export interface AnswerCandidateQuestionResult {
@@ -51,7 +57,7 @@ export interface AnswerCandidateQuestionResult {
 export async function answerCandidateQuestion(
   input: AnswerCandidateQuestionInput,
 ): Promise<AnswerCandidateQuestionResult> {
-  const engine = createDefaultKnowledgeEngine()
+  const engine = input.knowledgeEngine ?? createDefaultKnowledgeEngine(input.knowledgeSourceMode ?? "SHADOW")
   const documentosEncontrados = await engine.searchByQuestion(input.pergunta, input.limiteDocumentos ?? 3, {
     includeInternal: input.includeInternal,
   })

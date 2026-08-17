@@ -29,9 +29,10 @@ test("migration permite exatamente LOCAL SHADOW PILOT", () => {
   assert.doesNotMatch(migration, /CEREBRO_OFICIAL|ACTIVE/)
 })
 test("migration não concede privilégios ao browser", () => assert.doesNotMatch(migration, /grant|policy|anon/i))
-test("PILOT não é conectado ao Knowledge Engine nesta tarefa", () => {
+test("PILOT é conectado ao Knowledge Engine somente pela retomada 010", () => {
   const engine = read("../apps/landing/src/orchestrator/knowledge/KnowledgeEngine.ts")
-  assert.doesNotMatch(engine, /knowledge_source_mode|KnowledgeSourceMode|PILOT/)
+  assert.match(engine, /mode === "PILOT".*PilotKnowledgeRepository/)
+  assert.match(engine, /mode: KnowledgeSourceModeValue = "SHADOW"/)
 })
 test("IPR finalize wizard e Admin não são importados pela configuração", () => {
   const source = migration + configFunction

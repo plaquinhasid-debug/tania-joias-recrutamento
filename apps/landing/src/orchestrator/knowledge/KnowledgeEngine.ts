@@ -17,6 +17,8 @@ import type { KnowledgeRepository } from "./KnowledgeRepository"
 import { SEED_KNOWLEDGE_DOCUMENTS } from "./seedDocuments"
 import { ShadowKnowledgeRepository } from "./ShadowKnowledgeRepository"
 import { SupabaseRemoteKnowledgeRepository } from "./SupabaseRemoteKnowledgeRepository"
+import { PilotKnowledgeRepository } from "./PilotKnowledgeRepository"
+import type { KnowledgeSourceModeValue } from "@tania-joias/shared"
 import type { KnowledgeCategory, KnowledgeDocument, KnowledgeSearchQuery } from "./types"
 
 const log = createLogger("[KnowledgeEngine]")
@@ -258,7 +260,10 @@ export class KnowledgeEngine {
  * carregado com os documentos fictícios de demonstração. Trocar para
  * Supabase no futuro = trocar só esta função (ver `KnowledgeRepository.ts`).
  */
-export function createDefaultKnowledgeEngine(): KnowledgeEngine {
+export function createDefaultKnowledgeEngine(mode: KnowledgeSourceModeValue = "SHADOW"): KnowledgeEngine {
   const local = new InMemoryKnowledgeRepository(SEED_KNOWLEDGE_DOCUMENTS)
-  return new KnowledgeEngine(new ShadowKnowledgeRepository(local, new SupabaseRemoteKnowledgeRepository()))
+  if (mode === "LOCAL") return new KnowledgeEngine(local)
+  const remote = new SupabaseRemoteKnowledgeRepository()
+  if (mode === "PILOT") return new KnowledgeEngine(new PilotKnowledgeRepository(local, remote))
+  return new KnowledgeEngine(new ShadowKnowledgeRepository(local, remote))
 }

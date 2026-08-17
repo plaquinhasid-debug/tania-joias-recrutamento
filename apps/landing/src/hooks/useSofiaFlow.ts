@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { FinalizeCandidatePayload, FinalizeCandidateResponse } from "@tania-joias/shared"
+import type { FinalizeCandidatePayload, FinalizeCandidateResponse, KnowledgeSourceModeValue } from "@tania-joias/shared"
 
 import { fetchSofiaConfig, fetchSofiaReacao, finalizeCandidate, insertAnswer } from "@/lib/api"
 import { getFbp, getOrBuildFbc, getOrCaptureFbclid } from "@/lib/tracking"
@@ -118,6 +118,9 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
   // nada quando muda, e o valor não pode mudar no meio de uma conversa já
   // em andamento.
   const perguntasIaAtivaRef = useRef(false)
+  // Fonte de conhecimento fixada no começo da conversa. O fallback do
+  // contrato de configuração é SHADOW; nunca muda no meio da sessão.
+  const knowledgeSourceModeRef = useRef<KnowledgeSourceModeValue>("SHADOW")
 
   // FEATURE-005 Parte 5: modo da "condução natural" (OFF/SHADOW — ACTIVE já
   // vem resolvido como SHADOW por `resolveNaturalConversationMode`). Mesmo
@@ -365,6 +368,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
           pergunta,
           sessionId,
           aiGateway: gateway,
+          knowledgeSourceMode: knowledgeSourceModeRef.current,
         })
         setBotTyping(false)
         await pushBotLine(resultado.composed.message, 300)
@@ -549,8 +553,9 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     if (introStarted.current) return
     introStarted.current = true
 
-    void fetchSofiaConfig().then(({ perguntasIaAtiva, conducaoNaturalModo }) => {
+    void fetchSofiaConfig().then(({ perguntasIaAtiva, conducaoNaturalModo, knowledgeSourceMode }) => {
       perguntasIaAtivaRef.current = perguntasIaAtiva
+      knowledgeSourceModeRef.current = knowledgeSourceMode
 
       const resolved = resolveNaturalConversationMode(conducaoNaturalModo)
       naturalConversationModeRef.current = resolved.effectiveMode
