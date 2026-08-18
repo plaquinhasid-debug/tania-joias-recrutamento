@@ -129,6 +129,31 @@ const SMALL_TALK_MARKERS = [
 
 const QUESTION_STARTERS = ["quanto", "como", "quando", "onde", "por que", "porque", "qual", "quais", "o que", "quem"]
 
+// IMPLEMENTATION-012E — frases de OBRIGAÇÃO/REGRA na 3ª pessoa impessoal
+// ("isso TEM QUE ser assim", "TEM DE pagar", "DEVE SER exatamente") — o jeito
+// mais comum de questionar/comentar uma regra do negócio em português
+// conversacional sem usar "?" nem nenhuma das palavras interrogativas de
+// `QUESTION_STARTERS` (confirmado ao vivo: "o certo tem que ser exatamente
+// em 30 dias" virou resposta literal do campo "nome"). Deliberadamente só
+// 3ª pessoa/impessoal — variantes na 1ª pessoa ("eu TENHO QUE pagar minhas
+// contas", "eu PRECISO ajudar em casa") são falas legítimas e comuns em
+// campos como `objetivo`, então ficam de fora de propósito.
+const IMPLICIT_RULE_QUESTION_PHRASES = ["tem que", "tem de", "deve ser", "precisa ser"]
+
+// IMPLEMENTATION-012E — verbos conjugados/marcadores de oração que
+// praticamente nunca aparecem dentro de um nome próprio ou nome de cidade
+// reais (ver `looksLikeFullSentence`, usado só nesses dois campos). "sao"
+// (forma normalizada de "são") é DELIBERADAMENTE excluído — colidiria com o
+// prefixo de cidade extremamente comum "São" (São Bernardo do Campo, São
+// Caetano do Sul, São Paulo...). "moro"/"mora" também ficam de fora — "Moro
+// em Mauá" já é uma resposta de cidade válida e testada (Parte 2, exemplo 8).
+const CLAUSE_MARKERS = [
+  "que", "tem", "tenho", "temos", "tinha", "esta", "estou", "estamos",
+  "preciso", "precisa", "precisam", "quero", "quer", "queremos",
+  "posso", "pode", "podem", "vou", "vai", "vamos",
+  "devo", "deve", "devem", "acho", "acha", "acredito",
+]
+
 // FEATURE-005 Parte 7, Objetivo 7: perguntas indiretas educadas ("Gostaria
 // de saber se...") não usam nenhuma das palavras interrogativas acima nem
 // "?" — sem isso, "Gostaria de saber se preciso comprar o primeiro
@@ -165,12 +190,32 @@ function containsWholeWord(texto: string, palavra: string): boolean {
 function looksLikeQuestion(texto: string): boolean {
   if (texto.includes("?")) return true
   if (containsAny(texto, INDIRECT_QUESTION_PHRASES)) return true
+  if (containsAny(texto, IMPLICIT_RULE_QUESTION_PHRASES)) return true
   for (const starter of QUESTION_STARTERS) {
     if (texto.startsWith(normalize(starter))) return true
     if (starter === "como" && isComoUsedAsComparison(texto)) continue
     if (containsWholeWord(texto, starter)) return true
   }
   return false
+}
+
+/**
+ * IMPLEMENTATION-012E — `true` se o texto tem estrutura de ORAÇÃO (contém
+ * algum verbo conjugado/marcador de oração de `CLAUSE_MARKERS`), usado só
+ * pelos campos de "nome próprio" (`nome`/`cidade`) para rejeitar frases que
+ * claramente não são um nome de pessoa ou de cidade — mesmo quando não
+ * batem em nenhum marcador de dúvida/objeção/pergunta já existente.
+ * Corrige o incidente confirmado ao vivo: "o certo tem que ser exatamente
+ * em 30 dias" (sem "?", sem nenhuma palavra de `QUESTION_STARTERS`) sendo
+ * salvo literalmente como o nome da candidata.
+ *
+ * Deliberadamente NÃO aplicado a campos de texto livre como `profissao`/
+ * `empresa_atual`/`objetivo`, cujas respostas legítimas são frequentemente
+ * orações completas ("Trabalho como cabeleireira", "Quero uma renda
+ * extra") — aplicar esta checagem ali rejeitaria respostas válidas.
+ */
+function looksLikeFullSentence(texto: string): boolean {
+  return CLAUSE_MARKERS.some((marcador) => containsWholeWord(texto, marcador))
 }
 
 /** `true` se o texto bate com QUALQUER categoria de "não é resposta" —
@@ -187,10 +232,17 @@ function matchesAnyNonAnswerMarker(texto: string): boolean {
 }
 
 /**
- * Regra de compatibilidade por campo (Objetivo 4). Dois tipos de campo:
- *  - "campo aberto" (nome, cidade, empresa_atual, instagram, objetivo):
- *    compatível se não-vazio e não bater com nenhum marcador genérico de
- *    pergunta/dúvida/objeção/small-talk/despedida.
+ * Regra de compatibilidade por campo (Objetivo 4). Três tipos de campo:
+ *  - "campo de nome próprio" (nome, cidade): compatível se não-vazio, não
+ *    bater com nenhum marcador genérico de pergunta/dúvida/objeção/
+ *    small-talk/despedida, E não tiver estrutura de oração completa
+ *    (`looksLikeFullSentence`, IMPLEMENTATION-012E) — um nome ou cidade
+ *    reais nunca contêm um verbo conjugado como "tem"/"precisa"/"quero".
+ *  - "campo aberto de texto livre" (empresa_atual, objetivo,
+ *    estabilidade_profissional): compatível se não-vazio e não bater com
+ *    nenhum marcador genérico — SEM a checagem de oração acima, porque
+ *    respostas legítimas aqui são frequentemente frases completas
+ *    ("Trabalho como cabeleireira", "Quero uma renda extra").
  *  - "campo com vocabulário próprio" (idade, telefone, trabalha,
  *    experiencia_vendas, whatsapp, possui_instagram, tempo_disponivel):
  *    tem uma lista de aceite PRÓPRIA que pode inclusive "vencer" um
@@ -203,6 +255,8 @@ function isFieldCompatible(fieldKey: string, texto: string): boolean {
   switch (fieldKey) {
     case "nome":
     case "cidade":
+      return texto.length > 0 && !matchesAnyNonAnswerMarker(texto) && !looksLikeFullSentence(texto)
+
     case "empresa_atual":
     case "objetivo":
     // QUALIFICACAO-002, Parte 1 — os 3 chips ("Fixa...", "Variável...",

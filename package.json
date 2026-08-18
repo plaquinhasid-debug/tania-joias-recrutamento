@@ -11,6 +11,8 @@
     "test:knowledge-source-setting": "node --test tests/knowledge-source-setting.test.mjs",
     "test:knowledge-pilot": "node --test tests/knowledge-pilot.test.mjs",
     "test:response-composer-questions": "node --import ./tests/register-ts-loader.mjs --test tests/response-composer-questions.test.mjs",
+    "test:wizard-question-interception": "node --import ./tests/register-ts-loader.mjs --test tests/wizard-question-interception.test.mjs",
+    "test:wizard-answer-extraction": "node --import ./tests/register-ts-loader.mjs --test tests/wizard-answer-extraction.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",

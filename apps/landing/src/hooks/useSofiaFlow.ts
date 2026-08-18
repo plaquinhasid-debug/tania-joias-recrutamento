@@ -20,6 +20,7 @@ import {
   resolveFieldKindForStep,
 } from "@/orchestrator/classifyForFeature004"
 import type { CandidateMessageKind } from "@/orchestrator/classifyCandidateMessage"
+import { extractAcceptedAnswerValue } from "@/orchestrator/extractAcceptedAnswerValue"
 import { resolveNaturalConversationMode, type EffectiveNaturalConversationMode } from "@/orchestrator/naturalConversation/resolveMode"
 import { observeShadowTurn } from "@/orchestrator/naturalConversation/shadowObserver"
 import { resolveReactionStrategy } from "@/orchestrator/naturalConversation/ReactionStrategyResolver"
@@ -531,6 +532,15 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
             void handleNonAnswerMessage(step, classification.kind)
           }
           return
+        }
+
+        // IMPLEMENTATION-012F — só chega aqui com a resposta JÁ aceita
+        // (`podePreencherComoResposta === true`): extrai o valor limpo pros
+        // campos de "nome próprio" (nome/cidade), separado da decisão de
+        // classificação acima. Nunca roda pra resposta interceptada (o
+        // `return` logo acima já saiu da função nesse caso).
+        if (step.key === "nome" || step.key === "cidade") {
+          provisionalAnswers[step.key] = extractAcceptedAnswerValue(step.key, value)
         }
       }
 

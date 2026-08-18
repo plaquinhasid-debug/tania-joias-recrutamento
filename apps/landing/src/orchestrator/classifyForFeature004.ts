@@ -80,6 +80,22 @@ const FALLBACK_QUESTION_STARTERS = ["quanto", "como", "quando", "onde", "por que
 // acabaria "compatível" com qualquer campo aberto só por não estar vazio.
 const FALLBACK_INDIRECT_QUESTION_PHRASES = ["gostaria de saber", "queria saber", "preciso saber", "gostaria de entender", "queria entender"]
 
+// IMPLEMENTATION-012E — mesma lista de `IMPLICIT_RULE_QUESTION_PHRASES` em
+// `classifyCandidateMessageContextual.ts`, duplicada aqui de propósito
+// (mesmo isolamento das outras listas deste arquivo), mantida EM SINCRONIA.
+const FALLBACK_IMPLICIT_RULE_QUESTION_PHRASES = ["tem que", "tem de", "deve ser", "precisa ser"]
+
+// IMPLEMENTATION-012E — mesma lista de `CLAUSE_MARKERS` em
+// `classifyCandidateMessageContextual.ts`, duplicada aqui de propósito,
+// mantida EM SINCRONIA. Usada só por `looksCompatibleWithCurrentField` nos
+// campos "nome"/"cidade" (ver ali para a justificativa completa).
+const FALLBACK_CLAUSE_MARKERS = [
+  "que", "tem", "tenho", "temos", "tinha", "esta", "estou", "estamos",
+  "preciso", "precisa", "precisam", "quero", "quer", "queremos",
+  "posso", "pode", "podem", "vou", "vai", "vamos",
+  "devo", "deve", "devem", "acho", "acha", "acredito",
+]
+
 // Mesma exceção da Parte 2 (`isComoUsedAsComparison`): "como" logo depois de
 // um verbo de autodescrição ("trabalho como manicure") é comparativo, não
 // interrogativo — sem isso, qualquer profissão respondida com "como" cairia
@@ -96,12 +112,18 @@ function containsWholeWordFallback(texto: string, palavra: string): boolean {
 
 function looksLikeQuestionFallback(texto: string): boolean {
   if (containsAnyFallback(texto, FALLBACK_INDIRECT_QUESTION_PHRASES)) return true
+  if (containsAnyFallback(texto, FALLBACK_IMPLICIT_RULE_QUESTION_PHRASES)) return true
   for (const starter of FALLBACK_QUESTION_STARTERS) {
     if (texto.startsWith(normalizeFallback(starter))) return true
     if (starter === "como" && isComoUsedAsComparisonFallback(texto)) continue
     if (containsWholeWordFallback(texto, starter)) return true
   }
   return false
+}
+
+/** IMPLEMENTATION-012E — mesma lógica de `looksLikeFullSentence` em `classifyCandidateMessageContextual.ts`, duplicada de propósito, mantida em sincronia. */
+function looksLikeFullSentenceFallback(texto: string): boolean {
+  return FALLBACK_CLAUSE_MARKERS.some((marcador) => containsWholeWordFallback(texto, marcador))
 }
 
 /**
@@ -137,8 +159,11 @@ export function looksCompatibleWithCurrentField(fieldKey: string, texto: string)
     case "whatsapp":
     case "possui_instagram":
       return containsAnyFallback(normalizado, ["sim", "nao", "tenho", "nao tenho"])
+    // IMPLEMENTATION-012E — mesma separação do classificador principal:
+    // nome/cidade também exigem ausência de estrutura de oração aqui.
     case "nome":
     case "cidade":
+      return normalizado.length > 0 && !looksLikeQuestionFallback(normalizado) && !looksLikeFullSentenceFallback(normalizado)
     case "empresa_atual":
     case "profissao":
     case "objetivo":
