@@ -121,6 +121,19 @@ const SOFIA_PLAYBOOK = {
   onSmallTalk: "converse normalmente, mas sempre volte naturalmente ao objetivo da entrevista",
   neverPromise: ["ganhos garantidos", "sucesso garantido", "lucro garantido", "aprovação garantida", "resultados garantidos"],
   neverDecide: ["aprovação", "reprovação", "pontuação", "IPR", "regras da empresa"],
+  // IMPLEMENTATION-012I — "(4) continue exatamente do ponto onde a conversa
+  // estava" em `responseStructure` estava sendo mal-interpretado como "faça
+  // a próxima pergunta do roteiro" (confirmado em respostas reais: "você já
+  // tem experiência com revenda?", "qual seria sua disponibilidade?"). Isso
+  // nunca é papel desta operação — o sistema já reanexa a pergunta certa do
+  // roteiro, separadamente, DEPOIS desta resposta (ver `handleCandidateQuestion`
+  // em `useSofiaFlow.ts`). Uma pergunta de qualificação aqui, somada a uma
+  // eventual pergunta de verificação de entendimento ("Faz sentido?"), foi a
+  // causa raiz confirmada de respostas com 2 perguntas caindo no fallback
+  // seguro por `MULTIPLE_QUESTIONS`.
+  neverAsk: [
+    "qualquer pergunta de qualificação da candidata (experiência com vendas, disponibilidade, cidade, motivação, Instagram, WhatsApp etc.) — isso é sempre responsabilidade exclusiva do roteiro determinístico, que retoma a pergunta certa logo depois da sua resposta, fora do seu controle",
+  ],
   whenUnsure: "nunca invente informação — diga que não possui aquele dado, ou baseie-se só em conhecimento oficial fornecido",
   style:
     "Escreva como no WhatsApp: natural, humano, leve. Sem soar como marketing ou propaganda. Um emoji ocasional " +
@@ -135,18 +148,43 @@ const SOFIA_PLAYBOOK = {
   ],
 } as const
 
+/**
+ * IMPLEMENTATION-012I — schema estruturado em 2 campos (antes: um único
+ * `message: string` livre). Separar "resposta factual" de "pergunta
+ * opcional" em campos distintos reduz estruturalmente a chance do modelo
+ * empilhar 2 perguntas na mesma resposta (confirmado em produção:
+ * "...tá bem? Isso faz sentido pra você?"), porque cada campo só tem espaço
+ * pra UM tipo de conteúdo — em vez de depender só de uma instrução em texto
+ * livre ("no máximo 1 pergunta") dentro de um único blob. O contrato
+ * público (`GenerateConversationalResponseResult.message`, `output.message`
+ * na Edge Function) continua sendo uma única string — só a MONTAGEM interna
+ * mudou (ver `callAnthropicOnce`), nenhum código downstream (ResponseComposer,
+ * ResponsePolicies, SupabaseAIProvider) precisa mudar.
+ */
 const RETURN_AGENT_MESSAGE_TOOL = {
   name: "return_agent_message",
-  description: "Registra a mensagem que a Sofia deve responder à candidata nesta operação.",
+  description:
+    "Registra a resposta da Sofia a esta pergunta/dúvida da candidata — NUNCA a próxima pergunta do roteiro " +
+    "(o sistema já reanexa a pergunta certa do roteiro separadamente, depois desta resposta).",
   input_schema: {
     type: "object",
     properties: {
-      message: {
+      answer_text: {
         type: "string",
-        description: "60 a 120 palavras, no máximo 3 parágrafos, no máximo 1 pergunta — nunca um bloco grande de texto.",
+        description:
+          "A resposta factual à pergunta/dúvida da candidata. 40 a 100 palavras, no máximo 2 parágrafos. " +
+          "NUNCA contém \"?\" — nenhuma pergunta aqui, nem retórica, nem de qualificação.",
+      },
+      optional_question: {
+        type: ["string", "null"],
+        description:
+          "Opcional: UMA única pergunta curta de verificação de entendimento (ex.: \"Faz sentido?\", \"Ficou claro?\"). " +
+          "NUNCA uma pergunta de qualificação da candidata (nunca pergunte sobre experiência, disponibilidade, " +
+          "cidade, motivação, Instagram, WhatsApp etc. — isso é papel exclusivo do roteiro, não seu). " +
+          "Use null quando não fizer sentido perguntar nada.",
       },
     },
-    required: ["message"],
+    required: ["answer_text", "optional_question"],
     additionalProperties: false,
   },
 } as const
@@ -167,6 +205,7 @@ function buildSystemPrompt(): string {
     `SE A CANDIDATA ESTIVER SÓ CONVERSANDO: ${p.onSmallTalk}.`,
     `VOCÊ NUNCA PROMETE: ${p.neverPromise.join(", ")}.`,
     `VOCÊ NUNCA DECIDE: ${p.neverDecide.join(", ")} — isso é sempre responsabilidade exclusiva de um sistema de regras separado e determinístico, fora do seu controle.`,
+    `VOCÊ NUNCA PERGUNTA: ${p.neverAsk.join("; ")}.`,
     `QUANDO NÃO SOUBER: ${p.whenUnsure}.`,
     `ESTILO: ${p.style}`,
     `TAMANHO DA RESPOSTA: ${p.lengthRule}.`,
@@ -200,7 +239,11 @@ function buildUserPrompt(input: GenerateConversationalResponseInput): string {
     )
   }
   linhas.push(`Mensagem da candidata: "${input.userMessage}"`)
-  linhas.push("Gere a próxima fala da Sofia usando a ferramenta return_agent_message.")
+  linhas.push(
+    "Gere a resposta da Sofia usando a ferramenta return_agent_message: preencha answer_text com a resposta " +
+      "factual (sem nenhuma pergunta) e, só se fizer sentido, optional_question com NO MÁXIMO uma pergunta curta " +
+      "de verificação de entendimento — nunca uma pergunta de qualificação da candidata.",
+  )
   return linhas.join("\n")
 }
 
@@ -244,18 +287,45 @@ async function callAnthropicOnce(
   const toolUse = (data?.content as Array<Record<string, unknown>> | undefined)?.find(
     (block) => block.type === "tool_use" && block.name === RETURN_AGENT_MESSAGE_TOOL.name,
   )
-  const message = (toolUse?.input as { message?: unknown } | undefined)?.message
-
-  if (typeof message !== "string" || !message.trim()) {
-    throw new AgentAiError("AI_INVALID_RESPONSE", "Resposta da Anthropic fora do formato esperado.")
-  }
+  const message = composeMessageFromToolOutput(toolUse?.input)
 
   const usage = data?.usage as { input_tokens?: number; output_tokens?: number } | undefined
 
   return {
-    message: message.trim(),
+    message,
     usage: usage ? { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens } : undefined,
   }
+}
+
+/**
+ * IMPLEMENTATION-012I — extraída de `callAnthropicOnce` pra ser testável sem
+ * precisar de uma chamada real à Anthropic (o resto da função só faz I/O:
+ * monta a requisição HTTP e lê `usage`). Recebe o `input` bruto do
+ * `tool_use` (schema de 2 campos, ver `RETURN_AGENT_MESSAGE_TOOL`) e devolve
+ * a mensagem final composta — ou lança `AgentAiError("AI_INVALID_RESPONSE")`
+ * se o formato vier errado OU se, mesmo com o schema separado, a resposta
+ * ainda tiver mais de uma pergunta somando os dois campos. Nunca corta/edita
+ * texto pra "consertar" — só aceita ou rejeita (rejeição cai no mesmo
+ * fallback seguro já existente do lado do cliente, via `AI_INVALID_RESPONSE`).
+ */
+export function composeMessageFromToolOutput(toolInput: unknown): string {
+  const input = toolInput as { answer_text?: unknown; optional_question?: unknown } | undefined
+  const answerText = input?.answer_text
+
+  if (typeof answerText !== "string" || !answerText.trim()) {
+    throw new AgentAiError("AI_INVALID_RESPONSE", "Resposta da Anthropic fora do formato esperado.")
+  }
+  // `optional_question` é opcional por natureza — `null`/ausente/string vazia
+  // são todos "sem pergunta", só uma string não-vazia conta como pergunta.
+  const optionalQuestionText = typeof input?.optional_question === "string" ? input.optional_question.trim() : ""
+
+  const countQuestionMarks = (texto: string) => (texto.match(/\?/g) ?? []).length
+  const totalQuestionMarks = countQuestionMarks(answerText) + countQuestionMarks(optionalQuestionText)
+  if (totalQuestionMarks > 1) {
+    throw new AgentAiError("AI_INVALID_RESPONSE", "Resposta da Anthropic com mais de uma pergunta.")
+  }
+
+  return optionalQuestionText ? `${answerText.trim()} ${optionalQuestionText}` : answerText.trim()
 }
 
 /**
