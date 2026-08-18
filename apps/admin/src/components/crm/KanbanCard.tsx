@@ -1,7 +1,8 @@
-import type { MouseEvent } from "react"
+import { useState, type MouseEvent } from "react"
+import { toast } from "sonner"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { AlarmClock, ClipboardCheck, ClipboardList, PhoneCall } from "lucide-react"
+import { ClipboardCheck, PhoneCall } from "lucide-react"
 import { ETAPA_DETALHE_LABEL, PROXIMA_ACAO_LABEL, pipelineColumnKeyForLead } from "@tania-joias/shared"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,13 +11,35 @@ import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { cn } from "@/lib/utils"
 import { formatDate, formatPhone, formatRelative, whatsappLinkWithMessage } from "@/lib/format"
-import { fichaPendente, fichaStatusForLead, latestProximaAcao, type LeadWithAnalysis } from "@/hooks/useLeads"
-import { fichaLinkUrl } from "@/hooks/useLeadFicha"
+import { WHATSAPP_DELIVERY_STATUS_LABEL } from "@/lib/whatsappStatus"
+import {
+  fichaPendente,
+  fichaStatusForLead,
+  latestProximaAcao,
+  whatsappDeliveryStatusForLead,
+  type LeadWithAnalysis,
+} from "@/hooks/useLeads"
+import { fichaLinkUrl, useGenerateFichaLink, useMarkManualContact } from "@/hooks/useLeadFicha"
 
-/** Mesmo espírito do lembrete manual de "Mandar pelo WhatsApp" — só que cobrando o preenchimento, não anunciando o link pela primeira vez. */
-function mensagemLembrete(nome: string, token: string): string {
+/**
+ * IMPLEMENTATION-CRM-002A — texto único usado pelo botão "Abrir WhatsApp",
+ * revisado na 015D pra evitar linguagem de incentivo/desbloqueio
+ * ("liberar seu Mostruário") que pode atrapalhar a classificação Utility
+ * do template. Só abre o WhatsApp/WhatsApp Web pro operador mandar — nunca
+ * chama a Cloud API.
+ */
+function mensagemContatoManual(nome: string, link: string): string {
   const primeiroNome = nome.trim().split(/\s+/)[0] ?? ""
-  return `Oi, ${primeiroNome}! 🌸\n\nPassando só pra lembrar de preencher sua Ficha de Aprovação e liberar seu Mostruário — é rapidinho:\n\n${fichaLinkUrl(token)}\n\nQualquer dúvida, é só chamar aqui! 💛`
+  return `Oi, ${primeiroNome}! Seu cadastro avançou para a 2ª etapa. Para continuar, preencha sua Ficha de Aprovação no link abaixo:\n\n${link}`
+}
+
+const DELIVERY_BADGE_VARIANT: Record<string, "destructive" | "success" | "gold" | "outline"> = {
+  failed: "destructive",
+  read: "success",
+  delivered: "success",
+  sent: "gold",
+  accepted: "gold",
+  no_confirmation: "outline",
 }
 
 interface KanbanCardProps {
@@ -28,6 +51,9 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
   })
+  const generateLink = useGenerateFichaLink()
+  const markContact = useMarkManualContact()
+  const [confirmandoContato, setConfirmandoContato] = useState(false)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -38,12 +64,53 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   const fichaStatus = fichaStatusForLead(lead)
   const etapaDetalhe = ETAPA_DETALHE_LABEL[pipelineColumnKeyForLead(lead)]
   const pendente = fichaPendente(lead)
+  // IMPLEMENTATION-CRM-002A — as 19 leads aprovadas antigas sem ficha caem
+  // aqui; cada uma revisada individualmente pelo botão abaixo, nunca em massa.
+  const semFicha = lead.status === "aprovada" && lead.leads_ficha.length === 0
+  const deliveryStatus = pendente ? whatsappDeliveryStatusForLead(lead) : null
 
-  function handleLembrar(event: MouseEvent) {
+  function handleGerarFicha(event: MouseEvent) {
+    event.stopPropagation()
+    if (generateLink.isPending) return
+    generateLink.mutate(lead.id, {
+      onError: () => toast.error("Não foi possível gerar o link da ficha."),
+    })
+  }
+
+  function handleAbrirWhatsapp(event: MouseEvent) {
     event.stopPropagation()
     if (!pendente) return
-    const link = whatsappLinkWithMessage(lead.telefone, mensagemLembrete(lead.nome, pendente.token))
+    const link = whatsappLinkWithMessage(
+      lead.telefone,
+      mensagemContatoManual(lead.nome, fichaLinkUrl(pendente.token)),
+    )
     if (link) window.open(link, "_blank", "noopener,noreferrer")
+  }
+
+  function handleCopiarLink(event: MouseEvent) {
+    event.stopPropagation()
+    if (!pendente) return
+    navigator.clipboard.writeText(fichaLinkUrl(pendente.token))
+    toast.success("Link copiado")
+  }
+
+  function handleIniciarConfirmacao(event: MouseEvent) {
+    event.stopPropagation()
+    setConfirmandoContato(true)
+  }
+
+  function handleCancelarConfirmacao(event: MouseEvent) {
+    event.stopPropagation()
+    setConfirmandoContato(false)
+  }
+
+  function handleConfirmarContato(event: MouseEvent) {
+    event.stopPropagation()
+    if (!pendente || markContact.isPending) return
+    markContact.mutate(pendente.id, {
+      onError: () => toast.error("Não foi possível registrar o contato manual."),
+    })
+    setConfirmandoContato(false)
   }
 
   return (
@@ -70,33 +137,84 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
           {PROXIMA_ACAO_LABEL[proximaAcao]}
         </Badge>
       )}
-      {fichaStatus && (
-        <Badge variant={fichaStatus === "preenchida" ? "success" : "gold"} className="mt-2 gap-1">
-          {fichaStatus === "preenchida" ? (
-            <ClipboardCheck className="size-3" />
-          ) : (
-            <ClipboardList className="size-3" />
-          )}
-          {fichaStatus === "preenchida" ? "Ficha preenchida" : "Ficha pendente"}
+      {fichaStatus === "preenchida" && (
+        <Badge variant="success" className="mt-2 gap-1">
+          <ClipboardCheck className="size-3" />
+          Ficha preenchida
         </Badge>
       )}
-      {pendente && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-muted-foreground">
-            Enviada {formatRelative(pendente.criado_em)}
-          </span>
+
+      {semFicha && (
+        <div className="mt-2 space-y-1.5" onClick={(event) => event.stopPropagation()}>
+          <p className="text-[11px] text-muted-foreground">Ficha ainda não gerada</p>
           <Button
             size="sm"
             variant="outline"
-            className="h-6 gap-1 px-2 text-[11px]"
-            disabled={lead.whatsapp !== true}
-            onClick={handleLembrar}
+            className="h-6 px-2 text-[11px]"
+            disabled={generateLink.isPending}
+            onClick={handleGerarFicha}
           >
-            <AlarmClock className="size-3" />
-            Lembrar
+            Gerar Ficha
           </Button>
         </div>
       )}
+
+      {pendente && deliveryStatus && (
+        <div className="mt-2 space-y-1.5" onClick={(event) => event.stopPropagation()}>
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant={DELIVERY_BADGE_VARIANT[deliveryStatus.kind]}>
+              {WHATSAPP_DELIVERY_STATUS_LABEL[deliveryStatus.kind]}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">
+              {formatRelative(pendente.criado_em)}
+            </span>
+          </div>
+          {deliveryStatus.kind === "failed" && deliveryStatus.errorCode && (
+            <p className="text-[11px] text-destructive">Código Meta: {deliveryStatus.errorCode}</p>
+          )}
+          {pendente.contato_manual_em && (
+            <p className="text-[11px] text-muted-foreground">
+              Contato manual realizado {formatRelative(pendente.contato_manual_em)}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[11px]"
+              disabled={lead.whatsapp !== true}
+              onClick={handleAbrirWhatsapp}
+            >
+              Abrir WhatsApp
+            </Button>
+            <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={handleCopiarLink}>
+              Copiar link
+            </Button>
+            {!confirmandoContato ? (
+              <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={handleIniciarConfirmacao}>
+                Marcar como contatada
+              </Button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Confirma o contato?</span>
+                <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={handleCancelarConfirmacao}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="gold"
+                  className="h-6 px-2 text-[11px]"
+                  disabled={markContact.isPending}
+                  onClick={handleConfirmarContato}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between gap-2">
         <PerfilComercialBadge perfil={lead.perfil_comercial} />
         <span className="text-xs font-medium tabular-nums text-muted-foreground">

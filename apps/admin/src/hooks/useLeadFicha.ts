@@ -36,9 +36,11 @@ export function useLeadFicha(leadId: string | undefined) {
 
 /**
  * Gera o link da Ficha (ou devolve o já existente, se por algum motivo já
- * tiver sido gerado) e avança o card pra "Ficha enviada" no Kanban.
- * Chamada tanto pelo botão manual (`useGenerateFichaLink`) quanto
- * automaticamente assim que uma lead vira "aprovada" (`useLeadDetail.ts`).
+ * tiver sido gerado) e avança o card pra "Contato manual / Ficha pendente"
+ * no Kanban — só significa que a Ficha existe, nunca que o WhatsApp foi
+ * enviado ou entregue (ver `deriveWhatsappDeliveryStatus`). Chamada tanto
+ * pelo botão manual (`useGenerateFichaLink`) quanto automaticamente assim
+ * que uma lead vira "aprovada" (`useLeadDetail.ts`).
  */
 export async function generateFichaLink(leadId: string): Promise<LeadFicha> {
   const { data: existing } = await supabase
@@ -55,10 +57,10 @@ export async function generateFichaLink(leadId: string): Promise<LeadFicha> {
     .single()
   if (error) throw error
 
-  // Avança o card pra "Ficha enviada" no Kanban sozinho — só quando ela
-  // ainda estava parada em "Aprovada" (`.is(..., null)` evita empurrar
-  // pra trás uma lead que já tinha avançado mais, ex.: se o link for
-  // gerado de novo por engano).
+  // Avança o card pra "Contato manual / Ficha pendente" no Kanban sozinho —
+  // só quando ela ainda estava parada em "Aprovada" (`.is(..., null)` evita
+  // empurrar pra trás uma lead que já tinha avançado mais, ex.: se o link
+  // for gerado de novo por engano).
   await supabase
     .from("leads")
     .update({ etapa_pos_aprovacao: "contatada" })
@@ -77,6 +79,52 @@ export function useGenerateFichaLink() {
       queryClient.setQueryData(["lead-ficha", data.lead_id], data)
       void queryClient.invalidateQueries({ queryKey: ["leads"] })
       void queryClient.invalidateQueries({ queryKey: ["lead", data.lead_id] })
+    },
+  })
+}
+
+/**
+ * IMPLEMENTATION-CRM-002A — registra que um OPERADOR HUMANO confirmou ter
+ * feito contato manual com a candidata. Só é chamada por uma ação explícita
+ * no Admin (nunca como efeito colateral de abrir o WhatsApp ou copiar o
+ * link) — ver `contato_manual_em` na migration
+ * `20260818163000_add_leads_ficha_contato_manual.sql`.
+ *
+ * Idempotente por construção: o filtro `is("contato_manual_em", null)`
+ * garante que uma segunda chamada nunca sobrescreve o timestamp original —
+ * se a linha já tiver `contato_manual_em`, o UPDATE afeta 0 linhas e a
+ * função busca e devolve o valor já existente, sem erro.
+ */
+export async function markManualContact(fichaId: string): Promise<LeadFicha> {
+  const { data, error } = await supabase
+    .from("leads_ficha")
+    .update({ contato_manual_em: new Date().toISOString() })
+    .eq("id", fichaId)
+    .is("contato_manual_em", null)
+    .select("*")
+    .maybeSingle()
+  if (error) throw error
+  if (data) return data
+
+  // 0 linhas afetadas = já tinha contato_manual_em preenchido; devolve o
+  // valor real já gravado, sem sobrescrever.
+  const { data: existing, error: fetchError } = await supabase
+    .from("leads_ficha")
+    .select("*")
+    .eq("id", fichaId)
+    .single()
+  if (fetchError) throw fetchError
+  return existing
+}
+
+export function useMarkManualContact() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: markManualContact,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["lead-ficha", data.lead_id], data)
+      void queryClient.invalidateQueries({ queryKey: ["leads"] })
     },
   })
 }

@@ -25,8 +25,15 @@ export const LEAD_STATUS_COLOR: Record<LeadStatus, string> = {
 // calcularIpr/decidirStatus/classificarPerfil nem do evento Meta Lead (ver
 // supabase/functions/finalize-candidate/index.ts). Controle manual da
 // equipe, adicional ao `status` que já existia.
+// IMPLEMENTATION-CRM-002A — "contatada" NÃO significa "WhatsApp entregue"
+// nem sequer "enviado": é gravado no momento em que a Ficha é GERADA
+// (`generateFichaLink`), automaticamente ou pelo botão manual — antes de
+// qualquer tentativa de envio. O rótulo antigo ("Ficha enviada") prometia
+// mais do que o dado garante (ver IMPLEMENTATION-INTELLIGENCE-015A/CRM-002).
+// O status real de entrega (aceita/enviada/entregue/lida/falhou) vem de
+// `whatsapp_messages`, exibido à parte no card — não deste rótulo.
 export const ETAPA_POS_APROVACAO_LABEL: Record<EtapaPosAprovacao, string> = {
-  contatada: "Ficha enviada",
+  contatada: "Contato manual / Ficha pendente",
   confirmada: "Confirmada",
   aguardando_tania: "Aguardando aprovação da Tania",
   ativa: "Ativa",

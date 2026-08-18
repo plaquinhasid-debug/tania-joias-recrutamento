@@ -15,10 +15,16 @@ interface FichaAprovacaoSectionProps {
   leadWhatsapp: boolean | null
 }
 
-/** Mensagem amigável explicando o link da Ficha — a candidata precisa entender que é pra clicar e preencher, não só receber um link solto. */
+/**
+ * Mensagem amigável explicando o link da Ficha — a candidata precisa
+ * entender que é pra clicar e preencher, não só receber um link solto.
+ * IMPLEMENTATION-CRM-002A — texto alinhado ao usado no Kanban (`KanbanCard.tsx`),
+ * revisado na 015D pra evitar linguagem de incentivo/desbloqueio ("liberar
+ * seu Mostruário") que pode atrapalhar a classificação Utility do template.
+ */
 function mensagemFicha(nome: string, token: string): string {
   const primeiroNome = nome.trim().split(/\s+/)[0] ?? ""
-  return `Oi, ${primeiroNome}! 🌸\n\nVocê passou pra 2ª etapa do cadastro! Pra liberar seu Mostruário, é só clicar no link abaixo e preencher rapidinho sua Ficha de Aprovação:\n\n${fichaLinkUrl(token)}\n\nQualquer dúvida, é só chamar aqui! 💛`
+  return `Oi, ${primeiroNome}! Seu cadastro avançou para a 2ª etapa. Para continuar, preencha sua Ficha de Aprovação no link abaixo:\n\n${fichaLinkUrl(token)}`
 }
 
 function CampoPreenchido({ label, value }: { label: string; value: string | null }) {

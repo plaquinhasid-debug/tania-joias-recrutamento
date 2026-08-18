@@ -377,6 +377,7 @@ export type Database = {
           conjuge_trabalha: boolean | null
           conjuge_trabalho_local: string | null
           conjuge_trabalho_telefone: string | null
+          contato_manual_em: string | null
           criado_em: string
           endereco_bairro: string | null
           endereco_cep: string | null
@@ -411,6 +412,7 @@ export type Database = {
           conjuge_trabalha?: boolean | null
           conjuge_trabalho_local?: string | null
           conjuge_trabalho_telefone?: string | null
+          contato_manual_em?: string | null
           criado_em?: string
           endereco_bairro?: string | null
           endereco_cep?: string | null
@@ -445,6 +447,7 @@ export type Database = {
           conjuge_trabalha?: boolean | null
           conjuge_trabalho_local?: string | null
           conjuge_trabalho_telefone?: string | null
+          contato_manual_em?: string | null
           criado_em?: string
           endereco_bairro?: string | null
           endereco_cep?: string | null
@@ -600,37 +603,71 @@ export type Database = {
         Row: {
           body: string | null
           created_at: string
+          delivered_at: string | null
           direction: string
+          error_code: string | null
+          error_message: string | null
+          error_title: string | null
+          failed_at: string | null
           id: string
+          lead_id: string | null
           message_type: string
           meta_message_id: string
           raw_payload: Json | null
+          read_at: string | null
+          sent_at: string | null
           status: string | null
           telefone: string
+          updated_at: string
         }
         Insert: {
           body?: string | null
           created_at?: string
+          delivered_at?: string | null
           direction: string
+          error_code?: string | null
+          error_message?: string | null
+          error_title?: string | null
+          failed_at?: string | null
           id?: string
+          lead_id?: string | null
           message_type?: string
           meta_message_id: string
           raw_payload?: Json | null
+          read_at?: string | null
+          sent_at?: string | null
           status?: string | null
           telefone: string
+          updated_at?: string
         }
         Update: {
           body?: string | null
           created_at?: string
+          delivered_at?: string | null
           direction?: string
+          error_code?: string | null
+          error_message?: string | null
+          error_title?: string | null
+          failed_at?: string | null
           id?: string
+          lead_id?: string | null
           message_type?: string
           meta_message_id?: string
           raw_payload?: Json | null
+          read_at?: string | null
+          sent_at?: string | null
           status?: string | null
           telefone?: string
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_messages_telefone_fkey"
             columns: ["telefone"]

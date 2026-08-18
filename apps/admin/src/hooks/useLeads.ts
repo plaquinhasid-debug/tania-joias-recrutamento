@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import type { ProximaAcao } from "@tania-joias/shared"
 
 import { supabase } from "@/lib/supabase"
+import { deriveWhatsappDeliveryStatus, type WhatsappDeliveryStatus } from "@/lib/whatsappStatus"
 import type { Lead, LeadFiltersState } from "@/types"
 
 export const DEFAULT_LEAD_FILTERS: LeadFiltersState = {
@@ -17,7 +18,27 @@ export const DEFAULT_LEAD_FILTERS: LeadFiltersState = {
 /** Lead com o histórico de análises e a Ficha de Aprovação embutidos — só o suficiente pro Kanban/lista. */
 export type LeadWithAnalysis = Lead & {
   ai_analysis: { proxima_acao: string | null; created_at: string }[]
-  leads_ficha: { token: string; criado_em: string; preenchido_em: string | null }[]
+  leads_ficha: {
+    id: string
+    token: string
+    criado_em: string
+    preenchido_em: string | null
+    whatsapp_enviado_em: string | null
+    contato_manual_em: string | null
+  }[]
+  // IMPLEMENTATION-CRM-002A — status real de entrega (015B), correlacionado
+  // por lead_id (ver comentário de `deriveWhatsappDeliveryStatus`).
+  whatsapp_messages: {
+    meta_message_id: string
+    message_type: string | null
+    sent_at: string | null
+    delivered_at: string | null
+    read_at: string | null
+    failed_at: string | null
+    error_code: string | null
+    error_title: string | null
+    created_at: string
+  }[]
 }
 
 /** Uma lead pode ter mais de uma `ai_analysis` (reprocessamento) — a mais recente é a que vale. */
@@ -40,10 +61,25 @@ export function fichaPendente(lead: LeadWithAnalysis): LeadWithAnalysis["leads_f
   return ficha
 }
 
+/** Status real de entrega do WhatsApp da Ficha desta lead — nunca inventado, ver `deriveWhatsappDeliveryStatus`. */
+export function whatsappDeliveryStatusForLead(lead: LeadWithAnalysis): WhatsappDeliveryStatus {
+  const ficha = lead.leads_ficha[0]
+  return deriveWhatsappDeliveryStatus({
+    whatsappEnviadoEm: ficha?.whatsapp_enviado_em ?? null,
+    messages: lead.whatsapp_messages,
+  })
+}
+
 async function fetchLeads(filters: LeadFiltersState): Promise<LeadWithAnalysis[]> {
+  // IMPLEMENTATION-CRM-002A — string do select precisa ser um literal único
+  // (nunca concatenado com `+`): o parser de tipos do supabase-js resolve os
+  // embeds a partir do tipo literal exato da string, e concatenação perde
+  // esse literal (cai em `GenericStringError` na compilação).
   let query = supabase
     .from("leads")
-    .select("*, ai_analysis(proxima_acao, created_at), leads_ficha(token, criado_em, preenchido_em)")
+    .select(
+      "*, ai_analysis(proxima_acao, created_at), leads_ficha(id, token, criado_em, preenchido_em, whatsapp_enviado_em, contato_manual_em), whatsapp_messages!whatsapp_messages_lead_id_fkey(meta_message_id, message_type, sent_at, delivered_at, read_at, failed_at, error_code, error_title, created_at)",
+    )
     .order("created_at", { ascending: false })
 
   if (filters.status !== "todos") {
