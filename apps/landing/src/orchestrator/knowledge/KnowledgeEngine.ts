@@ -227,7 +227,7 @@ export class KnowledgeEngine {
     // só pra obter o conjunto de documentos elegíveis.
     const documentosVisiveis = await this.search({ includeInternal: options?.includeInternal })
 
-    const resultado = documentosVisiveis
+    const candidatos = documentosVisiveis
       .map((documento) => ({
         documento,
         pontos: keywords.filter((keyword) => documentoCasaComPalavraChave(documento, keyword)).length,
@@ -238,8 +238,22 @@ export class KnowledgeEngine {
         (a, b) =>
           b.pontos - a.pontos || b.acertosTitulo - a.acertosTitulo || b.documento.prioridade - a.documento.prioridade,
       )
-      .slice(0, limite)
-      .map((r) => r.documento)
+
+    // IMPLEMENTATION-012K — filtro de precisão geral (não é regra por tópico):
+    // usa o MESMO sinal de `acertosTitulo` que já decide empate acima, mas
+    // como um corte de relevância, não só desempate. Bater em título/id é um
+    // sinal de relevância mais forte do que bater só em conteúdo/tags/
+    // palavrasChave (mesmo raciocínio do comentário de `contarAcertosNoTituloOuId`);
+    // documentos que só bateram por uma palavra genérica em algum lugar do
+    // corpo (ex.: "peças" aparecendo em vários textos) tendem a ser ruído —
+    // contexto extra que não ajuda a responder e pode até distrair a IA.
+    // Nunca reduz para menos do que já era enviado antes: se NENHUM candidato
+    // bate em título/id (caso real confirmado na pergunta "30 dias"), mantém
+    // o conjunto original ranqueado por pontos, sem perder cobertura.
+    const comAcertoNoTitulo = candidatos.filter((r) => r.acertosTitulo > 0)
+    const relevantes = comAcertoNoTitulo.length > 0 ? comAcertoNoTitulo : candidatos
+
+    const resultado = relevantes.slice(0, limite).map((r) => r.documento)
 
     // Fire-and-forget: o resultado local já está decidido e a candidata nunca
     // espera nem recebe conhecimento remoto nesta fase.
