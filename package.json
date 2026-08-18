@@ -15,6 +15,8 @@
     "test:wizard-answer-extraction": "node --import ./tests/register-ts-loader.mjs --test tests/wizard-answer-extraction.test.mjs",
     "test:agent-prompts-single-question": "node --test tests/agent-prompts-single-question.test.mjs",
     "test:knowledge-retrieval-precision": "node --import ./tests/register-ts-loader.mjs --test tests/knowledge-retrieval-precision.test.mjs",
+    "test:whatsapp-delivery-status": "node --test tests/whatsapp-delivery-status.test.mjs",
+    "test:whatsapp-message-log": "node --import ./tests/register-ts-loader.mjs --test tests/whatsapp-message-log.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",

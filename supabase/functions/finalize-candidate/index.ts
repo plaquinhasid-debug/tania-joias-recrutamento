@@ -15,6 +15,7 @@ import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
 import { sendWhatsappApprovalTemplate, sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
+import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
 import {
   PROFISSOES_PREFERIDAS,
@@ -277,7 +278,7 @@ Deno.serve(async (req) => {
         const templateName = Deno.env.get("WHATSAPP_FICHA_TEMPLATE_NAME")
         if (token && phoneNumberId && templateName) {
           try {
-            await sendWhatsappFichaTemplate({
+            const graphApiResponse = await sendWhatsappFichaTemplate({
               token,
               phoneNumberId,
               templateName,
@@ -289,6 +290,16 @@ Deno.serve(async (req) => {
               .from("leads_ficha")
               .update({ whatsapp_enviado_em: new Date().toISOString() })
               .eq("lead_id", lead.id)
+            // IMPLEMENTATION-015B — registra o wamid pra status de entrega
+            // (sent/delivered/read/failed) poder ser rastreado depois pelo
+            // webhook. Best-effort: nunca derruba o envio que já aconteceu.
+            await recordOutboundWhatsappMessage({
+              supabase,
+              telefone: payload.telefone,
+              templateName,
+              leadId: lead.id,
+              graphApiResponse,
+            })
           } catch (err) {
             console.error("[finalize-candidate] falha ao enviar WhatsApp da Ficha", err)
           }

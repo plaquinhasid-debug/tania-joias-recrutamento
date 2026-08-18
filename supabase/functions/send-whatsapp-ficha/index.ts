@@ -11,6 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
+import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -99,8 +100,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "whatsapp_credentials_not_configured" }, 500)
   }
 
+  let graphApiResponse: unknown
   try {
-    await sendWhatsappFichaTemplate({
+    graphApiResponse = await sendWhatsappFichaTemplate({
       token,
       phoneNumberId,
       templateName,
@@ -116,6 +118,17 @@ Deno.serve(async (req) => {
     .from("leads_ficha")
     .update({ whatsapp_enviado_em: new Date().toISOString() })
     .eq("lead_id", body.lead_id)
+
+  // IMPLEMENTATION-015B — mesmo registro do wamid do caminho automático
+  // (ver finalize-candidate), pro webhook poder rastrear status de entrega
+  // também nos envios manuais feitos pelo Admin.
+  await recordOutboundWhatsappMessage({
+    supabase,
+    telefone: lead.telefone,
+    templateName,
+    leadId: lead.id,
+    graphApiResponse,
+  })
 
   return jsonResponse({ sent: true })
 })

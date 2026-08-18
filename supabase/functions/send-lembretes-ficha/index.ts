@@ -14,6 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
+import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +104,16 @@ Deno.serve(async (req) => {
         .from("leads_ficha")
         .update({ lembrete_enviado_em: new Date().toISOString() })
         .eq("lead_id", ficha.lead_id)
+      // IMPLEMENTATION-015B — mesmo registro do wamid dos outros dois
+      // caminhos, pro webhook poder rastrear status de entrega também nos
+      // lembretes.
+      await recordOutboundWhatsappMessage({
+        supabase,
+        telefone: lead.telefone,
+        templateName,
+        leadId: ficha.lead_id,
+        graphApiResponse: resposta,
+      })
       enviados += 1
     } catch (err) {
       erros.push(`${ficha.lead_id}: ${String(err)}`)

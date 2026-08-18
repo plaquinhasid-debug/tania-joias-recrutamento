@@ -203,6 +203,80 @@ async function sendAutomaticReply(to, replyToMessageId) {
   }
 }
 
+// IMPLEMENTATION-INTELLIGENCE-015B — status real de entrega das mensagens
+// outbound (ver `_shared/whatsapp-message-log.ts`, lado do envio). A Meta
+// manda esses eventos aqui em `value.statuses`; antes desta mudança eram só
+// logados (`summarize`) e descartados — `whatsapp_enviado_em` significava
+// só "a Graph API aceitou", nunca "entregue"/"lida"/"falhou" de verdade.
+const STATUS_FIELD_BY_TYPE = {
+  sent: 'sent_at',
+  delivered: 'delivered_at',
+  read: 'read_at',
+  failed: 'failed_at',
+};
+
+/** Só os campos seguros do primeiro erro de um evento `failed` — nunca inclui token/payload bruto. */
+export function extractStatusError(status) {
+  const err = (status.errors ?? [])[0];
+  if (!err) return {};
+  return {
+    error_code: err.code != null ? String(err.code) : null,
+    error_title: err.title ?? null,
+    error_message: err.message ?? err.error_data?.details ?? null,
+  };
+}
+
+/**
+ * Monta o PATCH pra um evento de status — `null` se o tipo não for um dos
+ * quatro reconhecidos (ignorado com segurança, nunca derruba o webhook).
+ * Cada estágio é uma coluna própria (`sent_at`/`delivered_at`/`read_at`/
+ * `failed_at`) — não um único campo sobrescrito — então a ordem de chegada
+ * dos eventos não importa: um `read` chegando sem um `delivered` anterior
+ * ainda registra `read_at` normalmente, sem depender do outro ter chegado.
+ */
+export function buildStatusPatch(status) {
+  const field = STATUS_FIELD_BY_TYPE[status?.status];
+  if (!field) return null;
+
+  const timestampSeconds = Number(status.timestamp);
+  const timestamp = Number.isFinite(timestampSeconds)
+    ? new Date(timestampSeconds * 1000).toISOString()
+    : new Date().toISOString();
+
+  const patch = { [field]: timestamp, status: status.status, updated_at: new Date().toISOString() };
+  if (status.status === 'failed') Object.assign(patch, extractStatusError(status));
+  return { field, patch };
+}
+
+/**
+ * Aplica um evento de status via PATCH idempotente: o filtro
+ * `<coluna>=is.null` garante que um webhook duplicado nunca sobrescreve um
+ * timestamp já registrado (0 linhas afetadas na segunda vez, sem erro). Se
+ * o wamid não bater com nenhuma linha (ex.: mensagem enviada antes desta
+ * funcionalidade existir), o PATCH também só afeta 0 linhas — nunca lança.
+ */
+export async function applyStatusUpdate(status) {
+  const built = buildStatusPatch(status);
+  if (!built) {
+    console.info('[WhatsApp status] tipo não reconhecido, ignorado', { status: status?.status });
+    return;
+  }
+  if (!status.id) return;
+
+  try {
+    await supabaseRequest(
+      `whatsapp_messages?meta_message_id=eq.${encodeURIComponent(status.id)}&${built.field}=is.null`,
+      { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(built.patch) },
+    );
+  } catch (err) {
+    console.error('[WhatsApp status] falha ao registrar status', {
+      messageId: status.id,
+      statusType: status.status,
+      error: String(err),
+    });
+  }
+}
+
 async function buscarLeadsAguardandoTania() {
   const result = await supabaseRequest(
     'leads?etapa_pos_aprovacao=eq.aguardando_tania&select=id,nome',
@@ -251,6 +325,11 @@ async function processPayload(payload) {
           await sendAutomaticReply(message.from, message.id);
           await processarDecisaoTania(message);
         }
+      }
+      // IMPLEMENTATION-015B — cada evento de status é tratado isoladamente
+      // (uma falha num não impede os outros), nunca deriva o webhook.
+      for (const status of value.statuses ?? []) {
+        await applyStatusUpdate(status);
       }
     }
   }
