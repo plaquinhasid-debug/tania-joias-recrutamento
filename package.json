@@ -18,6 +18,8 @@
     "test:whatsapp-delivery-status": "node --test tests/whatsapp-delivery-status.test.mjs",
     "test:whatsapp-message-log": "node --import ./tests/register-ts-loader.mjs --test tests/whatsapp-message-log.test.mjs",
     "test:crm-whatsapp-status": "node --import ./tests/register-ts-loader.mjs --test tests/crm-whatsapp-status.test.mjs",
+    "test:crm-tania-decision-gate": "node --import ./tests/register-ts-loader.mjs --test tests/crm-tania-decision-gate.test.mjs",
+    "test:crm-aprovada-column-label": "node --import ./tests/register-ts-loader.mjs --test tests/crm-aprovada-column-label.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",

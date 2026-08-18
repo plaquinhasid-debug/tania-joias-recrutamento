@@ -147,7 +147,12 @@ export const PIPELINE_COLUMNS: PipelineColumn[] = [
     color: LEAD_STATUS_COLOR.novo,
     groupKeys: ["em_analise"],
   },
-  { key: "aprovada", label: LEAD_STATUS_LABEL.aprovada, color: LEAD_STATUS_COLOR.aprovada },
+  // IMPLEMENTATION-CRM-003A — rótulo só desta coluna do Kanban, não do status
+  // real: `status='aprovada'` sem `etapa_pos_aprovacao` significa "passou na
+  // 1ª qualificação, falta gerar a Ficha", não "processo concluído". O valor
+  // interno do enum e `LEAD_STATUS_LABEL.aprovada` (badge, filtros) continuam
+  // "Aprovada" — só a etiqueta do card muda, pra deixar a próxima ação óbvia.
+  { key: "aprovada", label: "Pré-aprovada / Gerar ficha", color: LEAD_STATUS_COLOR.aprovada },
   { key: "contatada", label: ETAPA_POS_APROVACAO_LABEL.contatada, color: ETAPA_POS_APROVACAO_COLOR.contatada },
   {
     key: "confirmada",
