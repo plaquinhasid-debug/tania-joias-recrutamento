@@ -29,6 +29,21 @@ export function extractWamid(graphApiResponse: unknown): string | null {
   return id
 }
 
+// IMPLEMENTATION-CRM-004B — classificação explícita do MOTIVO do envio,
+// independente do template usado (dois propósitos diferentes podem usar o
+// mesmo template, ex.: FICHA_CANDIDATA e LEMBRETE_FICHA ambos usam
+// "ficha_aprovacao_link"). Necessário pra `deriveWhatsappDeliveryStatus`
+// (Admin) conseguir isolar o status da Ficha do status de uma futura
+// notificação da Tania, em vez de misturar "a mensagem mais recente
+// qualquer" pro mesmo lead_id. Ver migration
+// `20260818180000_add_whatsapp_messages_purpose.sql`.
+export type WhatsappMessagePurpose =
+  | "FICHA_CANDIDATA"
+  | "LEMBRETE_FICHA"
+  | "NOTIFICACAO_TANIA"
+  | "TEXTO_LIVRE"
+  | "INBOUND"
+
 export interface RecordOutboundWhatsappMessageParams {
   supabase: SupabaseClient
   telefone: string
@@ -38,6 +53,8 @@ export interface RecordOutboundWhatsappMessageParams {
   leadId?: string | null
   /** Retorno bruto (`await response.json()`) de `sendWhatsappFichaTemplate`/`sendWhatsappApprovalTemplate`. */
   graphApiResponse: unknown
+  /** Motivo do envio — obrigatório, nunca inferido do nome do template. */
+  messagePurpose: WhatsappMessagePurpose
 }
 
 /**
@@ -54,6 +71,7 @@ export async function recordOutboundWhatsappMessage({
   templateName,
   leadId,
   graphApiResponse,
+  messagePurpose,
 }: RecordOutboundWhatsappMessageParams): Promise<void> {
   const wamid = extractWamid(graphApiResponse)
   if (!wamid) {
@@ -77,6 +95,7 @@ export async function recordOutboundWhatsappMessage({
       body: templateName,
       status: "accepted",
       lead_id: leadId ?? null,
+      message_purpose: messagePurpose,
     })
   } catch (err) {
     console.error(

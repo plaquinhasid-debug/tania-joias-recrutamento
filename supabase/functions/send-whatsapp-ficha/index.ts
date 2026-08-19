@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
     templateName,
     leadId: lead.id,
     graphApiResponse,
+    messagePurpose: "FICHA_CANDIDATA",
   })
 
   return jsonResponse({ sent: true })

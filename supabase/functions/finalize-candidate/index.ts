@@ -299,6 +299,7 @@ Deno.serve(async (req) => {
               templateName,
               leadId: lead.id,
               graphApiResponse,
+              messagePurpose: "FICHA_CANDIDATA",
             })
           } catch (err) {
             console.error("[finalize-candidate] falha ao enviar WhatsApp da Ficha", err)

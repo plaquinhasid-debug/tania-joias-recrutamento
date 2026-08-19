@@ -1,7 +1,9 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import {
+  deriveTaniaNotificationStatus,
   deriveWhatsappDeliveryStatus,
+  pickMostRecentTaniaNotification,
   pickMostRecentWhatsappMessage,
 } from "../apps/admin/src/lib/whatsappStatus.ts"
 
@@ -14,6 +16,7 @@ function msg(overrides = {}) {
   return {
     meta_message_id: "wamid.X",
     message_type: "template",
+    message_purpose: null,
     sent_at: null,
     delivered_at: null,
     read_at: null,
@@ -122,4 +125,93 @@ test("pickMostRecentWhatsappMessage: lista vazia/undefined -> null, nunca lança
 test("nunca promove 'no_confirmation' para 'accepted' sem whatsapp_enviado_em real", () => {
   const status = deriveWhatsappDeliveryStatus({ whatsappEnviadoEm: null, messages: [] })
   assert.notEqual(status.kind, "accepted")
+})
+
+// -----------------------------------------------------------------------
+// IMPLEMENTATION-CRM-004B (item F/20) — separação de propósito: o badge da
+// Ficha nunca pode considerar uma mensagem NOTIFICACAO_TANIA (e vice-versa),
+// mesmo quando ambas têm o mesmo lead_id e chegam na mesma lista.
+// -----------------------------------------------------------------------
+
+test("badge da Ficha ignora mensagens NOTIFICACAO_TANIA mesmo sendo mais recentes", () => {
+  const mensagens = [
+    msg({
+      meta_message_id: "ficha",
+      message_purpose: "FICHA_CANDIDATA",
+      created_at: "2026-08-18T10:00:00Z",
+      delivered_at: "2026-08-18T10:00:05Z",
+    }),
+    msg({
+      meta_message_id: "tania",
+      message_purpose: "NOTIFICACAO_TANIA",
+      created_at: "2026-08-18T12:00:00Z",
+      read_at: "2026-08-18T12:00:10Z",
+    }),
+  ]
+  const picked = pickMostRecentWhatsappMessage(mensagens)
+  assert.equal(picked.meta_message_id, "ficha")
+
+  const status = deriveWhatsappDeliveryStatus({ whatsappEnviadoEm: "2026-08-18T10:00:00Z", messages: mensagens })
+  assert.equal(status.kind, "delivered")
+})
+
+test("badge da Tania ignora mensagens FICHA_CANDIDATA/LEMBRETE_FICHA mesmo sendo mais recentes", () => {
+  const mensagens = [
+    msg({
+      meta_message_id: "tania",
+      message_purpose: "NOTIFICACAO_TANIA",
+      created_at: "2026-08-18T10:00:00Z",
+      sent_at: "2026-08-18T10:00:05Z",
+    }),
+    msg({
+      meta_message_id: "lembrete",
+      message_purpose: "LEMBRETE_FICHA",
+      created_at: "2026-08-18T12:00:00Z",
+      read_at: "2026-08-18T12:00:10Z",
+    }),
+  ]
+  const picked = pickMostRecentTaniaNotification(mensagens)
+  assert.equal(picked.meta_message_id, "tania")
+
+  const status = deriveTaniaNotificationStatus({ taniaNotificadaEm: "2026-08-18T10:00:00Z", messages: mensagens })
+  assert.equal(status.kind, "sent")
+})
+
+test("pickMostRecentWhatsappMessage trata message_purpose null como legado da Ficha (mensagens anteriores à coluna existir)", () => {
+  const picked = pickMostRecentWhatsappMessage([
+    msg({ meta_message_id: "legado", message_purpose: null, created_at: "2026-08-15T00:00:00Z" }),
+  ])
+  assert.equal(picked.meta_message_id, "legado")
+})
+
+test("pickMostRecentTaniaNotification NUNCA trata message_purpose null como notificação da Tania", () => {
+  const picked = pickMostRecentTaniaNotification([
+    msg({ meta_message_id: "legado", message_purpose: null, created_at: "2026-08-15T00:00:00Z" }),
+  ])
+  assert.equal(picked, null)
+})
+
+test("deriveTaniaNotificationStatus: nenhum envio ainda -> 'not_sent' (nunca inventa 'accepted')", () => {
+  const status = deriveTaniaNotificationStatus({ taniaNotificadaEm: null, messages: [] })
+  assert.equal(status.kind, "not_sent")
+})
+
+test("deriveTaniaNotificationStatus: tania_notificada_em preenchido, sem confirmação de status -> 'accepted'", () => {
+  const status = deriveTaniaNotificationStatus({ taniaNotificadaEm: "2026-08-18T10:00:00Z", messages: [] })
+  assert.equal(status.kind, "accepted")
+})
+
+test("deriveTaniaNotificationStatus: failed_at -> 'failed', preserva error_code", () => {
+  const status = deriveTaniaNotificationStatus({
+    taniaNotificadaEm: "2026-08-18T10:00:00Z",
+    messages: [
+      msg({
+        message_purpose: "NOTIFICACAO_TANIA",
+        failed_at: "2026-08-18T10:00:05Z",
+        error_code: "131049",
+      }),
+    ],
+  })
+  assert.equal(status.kind, "failed")
+  assert.equal(status.errorCode, "131049")
 })

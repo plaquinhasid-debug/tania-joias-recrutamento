@@ -6,12 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useLeadFicha } from "@/hooks/useLeadFicha"
 import { useUpdateLead } from "@/hooks/useLeadDetail"
+import { useTaniaWhatsappNumero } from "@/hooks/useSettings"
 import { formatPhone, googleMapsUrl, whatsappLinkWithMessage } from "@/lib/format"
 import { decisaoTaniaDisponivel, etapaAposDecisaoTania } from "@/lib/taniaDecisionGate"
-
-// Número pessoal da Tania — é pra ela mesma que vai a mensagem de aprovação
-// final, fora do fluxo automático com a candidata.
-const TANIA_TELEFONE = "11967660123"
+import { mensagemFalarComCandidata } from "@/lib/taniaFalarComCandidata"
 
 interface TaniaAprovacaoSectionProps {
   leadId: string
@@ -53,6 +51,7 @@ export function TaniaAprovacaoSection({
   resumoParaMensagem,
 }: TaniaAprovacaoSectionProps) {
   const { data: ficha } = useLeadFicha(leadId)
+  const { data: taniaTelefone } = useTaniaWhatsappNumero()
   const updateLead = useUpdateLead()
 
   if (!decisaoTaniaDisponivel(leadEtapa)) {
@@ -60,6 +59,10 @@ export function TaniaAprovacaoSection({
   }
 
   function handleEnviarTania() {
+    if (!taniaTelefone) {
+      toast.error("Número da Tania não configurado. Veja Configurações.")
+      return
+    }
     const mensagem = mensagemParaTania(
       leadNome,
       leadCidade,
@@ -68,12 +71,21 @@ export function TaniaAprovacaoSection({
       ficha ? googleMapsUrl(ficha) : null,
       resumoParaMensagem,
     )
-    const link = whatsappLinkWithMessage(TANIA_TELEFONE, mensagem)
+    const link = whatsappLinkWithMessage(taniaTelefone, mensagem)
     if (link) window.open(link, "_blank", "noopener,noreferrer")
 
     updateLead
       .mutateAsync({ id: leadId, patch: { etapa_pos_aprovacao: "aguardando_tania" } })
       .catch(() => toast.error("Mensagem aberta, mas não deu pra mover o card. Mova manualmente."))
+  }
+
+  // IMPLEMENTATION-CRM-004B (item 3) — fala DIRETO com a candidata (número
+  // dela, `leadTelefone`), distinto de `handleEnviarTania` (fala com a
+  // Tania SOBRE a candidata). Só abre o WhatsApp — nunca envia sozinho, nunca
+  // grava nenhum status só por abrir o link.
+  function handleFalarComCandidata() {
+    const link = whatsappLinkWithMessage(leadTelefone, mensagemFalarComCandidata(leadNome))
+    if (link) window.open(link, "_blank", "noopener,noreferrer")
   }
 
   async function handleResposta(aprovou: boolean) {
@@ -124,6 +136,16 @@ export function TaniaAprovacaoSection({
             Tania recusou
           </Button>
         </div>
+
+        <Button
+          size="lg"
+          variant="gold"
+          className="w-full"
+          onClick={handleFalarComCandidata}
+        >
+          <MessageCircle className="size-4" />
+          Falar com a candidata
+        </Button>
 
         <div className="border-t border-border pt-2">
           {leadEtapa === "aguardando_tania" && (

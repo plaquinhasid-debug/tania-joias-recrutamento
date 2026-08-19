@@ -261,6 +261,7 @@ export type Database = {
           profissao: string | null
           resumo_ia: string | null
           status: Database["public"]["Enums"]["lead_status"]
+          tania_notificada_em: string | null
           telefone: string
           tempo_disponivel: string | null
           trabalha: boolean | null
@@ -305,6 +306,7 @@ export type Database = {
           profissao?: string | null
           resumo_ia?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tania_notificada_em?: string | null
           telefone: string
           tempo_disponivel?: string | null
           trabalha?: boolean | null
@@ -349,6 +351,7 @@ export type Database = {
           profissao?: string | null
           resumo_ia?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tania_notificada_em?: string | null
           telefone?: string
           tempo_disponivel?: string | null
           trabalha?: boolean | null
@@ -611,6 +614,7 @@ export type Database = {
           failed_at: string | null
           id: string
           lead_id: string | null
+          message_purpose: string | null
           message_type: string
           meta_message_id: string
           raw_payload: Json | null
@@ -631,6 +635,7 @@ export type Database = {
           failed_at?: string | null
           id?: string
           lead_id?: string | null
+          message_purpose?: string | null
           message_type?: string
           meta_message_id: string
           raw_payload?: Json | null
@@ -651,6 +656,7 @@ export type Database = {
           failed_at?: string | null
           id?: string
           lead_id?: string | null
+          message_purpose?: string | null
           message_type?: string
           meta_message_id?: string
           raw_payload?: Json | null

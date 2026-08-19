@@ -1,6 +1,6 @@
 import * as React from "react"
 import { toast } from "sonner"
-import { CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { ETAPA_POS_APROVACAO_LABEL } from "@tania-joias/shared"
 
 import {
@@ -41,7 +41,7 @@ const ESTABILIDADE_PROFISSIONAL_LABEL: Record<string, string> = {
 
 export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps) {
   const open = Boolean(leadId)
-  const { data: lead, isLoading: leadLoading } = useLead(leadId ?? undefined)
+  const { data: lead, isLoading: leadLoading, isError: leadError } = useLead(leadId ?? undefined)
   const { data: answers, isLoading: answersLoading } = useLeadAnswers(leadId ?? undefined)
   const { data: analysis, isLoading: analysisLoading } = useLeadAnalysis(leadId ?? undefined)
   const updateLead = useUpdateLead()
@@ -102,12 +102,28 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onOpenChange(false)}>
       <SheetContent className="w-full sm:max-w-xl">
-        {leadLoading || !lead ? (
+        {leadLoading ? (
           <div className="space-y-4 p-6">
             <SheetTitle className="sr-only">Carregando detalhes do lead</SheetTitle>
             <Skeleton className="h-6 w-40" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-32 w-full" />
+          </div>
+        ) : leadError || !lead ? (
+          // IMPLEMENTATION-CRM-004B (item 2) — deep link pra um lead que não
+          // existe (ou não é mais acessível) nunca pode travar o Admin numa
+          // tela de carregamento infinita. Erro amigável + fechar continua
+          // usável (o resto do Kanban/lista por trás não é afetado).
+          <div className="flex flex-col items-center gap-3 p-6 text-center">
+            <SheetTitle className="sr-only">Candidata não encontrada</SheetTitle>
+            <AlertCircle className="size-8 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">Candidata não encontrada</p>
+            <p className="text-sm text-muted-foreground">
+              Esse link pode estar desatualizado, ou a candidata pode ter sido removida.
+            </p>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
           </div>
         ) : (
           <>

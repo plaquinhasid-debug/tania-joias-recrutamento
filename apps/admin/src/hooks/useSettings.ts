@@ -365,6 +365,36 @@ export function useWhatsappLembreteFichaAutomaticoAtiva() {
   })
 }
 
+const TANIA_WHATSAPP_NUMERO_KEY = "tania_whatsapp_numero"
+
+/**
+ * IMPLEMENTATION-CRM-004B — número de WhatsApp da Tania, lido diretamente do
+ * browser (RLS `authenticated`, mesmo padrão de toda outra setting já lida
+ * assim nesta página — nunca um dado secreto, é só o destino de um link
+ * `wa.me`). Fonte de verdade única: `settings.tania_whatsapp_numero`.
+ * Devolve `null` se a linha não existir (nunca lança) — o chamador decide
+ * como degradar (ex.: desabilitar o botão que precisa do número).
+ */
+async function fetchTaniaWhatsappNumero(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("valor")
+    .eq("chave", TANIA_WHATSAPP_NUMERO_KEY)
+    .maybeSingle()
+
+  if (error) throw error
+  const numero = (data?.valor as { numero?: unknown } | undefined)?.numero
+  return typeof numero === "string" && numero.trim() ? numero.trim() : null
+}
+
+export function useTaniaWhatsappNumero() {
+  return useQuery({
+    queryKey: ["settings", TANIA_WHATSAPP_NUMERO_KEY],
+    queryFn: fetchTaniaWhatsappNumero,
+    staleTime: 30_000,
+  })
+}
+
 export function useSaveWhatsappLembreteFichaAutomaticoAtiva() {
   const queryClient = useQueryClient()
 

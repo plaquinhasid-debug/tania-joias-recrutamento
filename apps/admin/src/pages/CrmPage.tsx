@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { PageHeader } from "@/components/common/PageHeader"
 import { ErrorState } from "@/components/common/ErrorState"
@@ -10,10 +10,39 @@ import { DEFAULT_LEAD_FILTERS, useLeads } from "@/hooks/useLeads"
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads"
 import type { Lead } from "@/types"
 
+// IMPLEMENTATION-CRM-004B — deep link `/crm?lead={id}`: a URL é a fonte de
+// verdade de qual candidata está aberta no Drawer (não um useState separado)
+// — assim, um link de notificação (WhatsApp -> "Analisar candidata") abre
+// direto na candidata certa, e fechar o Drawer sempre limpa a URL de volta.
+const LEAD_PARAM = "lead"
+
 export default function CrmPage() {
   useRealtimeLeads()
   const { data: leads, isLoading, isError, refetch } = useLeads(DEFAULT_LEAD_FILTERS)
-  const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedLeadId = searchParams.get(LEAD_PARAM)
+
+  function selectLead(leadId: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set(LEAD_PARAM, leadId)
+        return next
+      },
+      { replace: false },
+    )
+  }
+
+  function closeDrawer() {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete(LEAD_PARAM)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   return (
     <div>
@@ -36,12 +65,12 @@ export default function CrmPage() {
           description="Assim que novas candidatas responderem o chat da Landing Page, elas aparecem aqui."
         />
       ) : (
-        <KanbanBoard leads={leads} onSelectLead={(lead: Lead) => setSelectedLeadId(lead.id)} />
+        <KanbanBoard leads={leads} onSelectLead={(lead: Lead) => selectLead(lead.id)} />
       )}
 
       <LeadDetailDrawer
         leadId={selectedLeadId}
-        onOpenChange={(open) => !open && setSelectedLeadId(null)}
+        onOpenChange={(open) => !open && closeDrawer()}
       />
     </div>
   )

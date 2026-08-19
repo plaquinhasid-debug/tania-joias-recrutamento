@@ -53,7 +53,7 @@ function createFakeSupabase() {
   }
 }
 
-test("B. wamid válido -> upsert em whatsapp_contacts + insert em whatsapp_messages com status 'accepted'", async () => {
+test("B. wamid válido -> upsert em whatsapp_contacts + insert em whatsapp_messages com status 'accepted' e message_purpose", async () => {
   const fake = createFakeSupabase()
   await recordOutboundWhatsappMessage({
     supabase: fake,
@@ -61,6 +61,7 @@ test("B. wamid válido -> upsert em whatsapp_contacts + insert em whatsapp_messa
     templateName: "ficha_aprovacao_link",
     leadId: "lead-123",
     graphApiResponse: { messages: [{ id: "wamid.XYZ" }] },
+    messagePurpose: "FICHA_CANDIDATA",
   })
 
   assert.equal(fake.calls.upsert.length, 1)
@@ -77,7 +78,24 @@ test("B. wamid válido -> upsert em whatsapp_contacts + insert em whatsapp_messa
     body: "ficha_aprovacao_link",
     status: "accepted",
     lead_id: "lead-123",
+    message_purpose: "FICHA_CANDIDATA",
   })
+})
+
+// IMPLEMENTATION-CRM-004B — LEMBRETE_FICHA e NOTIFICACAO_TANIA usam o mesmo
+// campo, nunca inferido do templateName (dois propósitos podem reaproveitar
+// o mesmo template).
+test("B-purpose. messagePurpose diferente é gravado literalmente, não inferido do template", async () => {
+  const fake = createFakeSupabase()
+  await recordOutboundWhatsappMessage({
+    supabase: fake,
+    telefone: "11999999999",
+    templateName: "ficha_aprovacao_link",
+    leadId: "lead-123",
+    graphApiResponse: { messages: [{ id: "wamid.LEMBRETE" }] },
+    messagePurpose: "LEMBRETE_FICHA",
+  })
+  assert.equal(fake.calls.insert[0].payload.message_purpose, "LEMBRETE_FICHA")
 })
 
 test("B2. sem wamid reconhecível -> não tenta gravar nada (nem upsert, nem insert), não lança", async () => {
@@ -89,6 +107,7 @@ test("B2. sem wamid reconhecível -> não tenta gravar nada (nem upsert, nem ins
       templateName: "ficha_aprovacao_link",
       leadId: "lead-123",
       graphApiResponse: {},
+      messagePurpose: "FICHA_CANDIDATA",
     }),
   )
   assert.equal(fake.calls.upsert.length, 0)
@@ -102,6 +121,7 @@ test("B3. leadId ausente -> grava lead_id null, nunca undefined/lança", async (
     telefone: "11999999999",
     templateName: "ficha_aprovacao_link",
     graphApiResponse: { messages: [{ id: "wamid.SEMLEAD" }] },
+    messagePurpose: "FICHA_CANDIDATA",
   })
   assert.equal(fake.calls.insert[0].payload.lead_id, null)
 })
@@ -122,6 +142,7 @@ test("B4. falha no upsert/insert -> nunca lança (best-effort, não pode derruba
       templateName: "ficha_aprovacao_link",
       leadId: "lead-123",
       graphApiResponse: { messages: [{ id: "wamid.FALHA" }] },
+      messagePurpose: "FICHA_CANDIDATA",
     }),
   )
 })

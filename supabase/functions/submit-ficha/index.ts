@@ -15,10 +15,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 
 import { sendWhatsappFreeText } from "../_shared/whatsapp-cloud-api.ts"
-
-// Mesmo número de TANIA_TELEFONE em TaniaAprovacaoSection.tsx (frontend),
-// já com o DDI 55 porque é assim que a Cloud API espera o destinatário.
-const TANIA_TELEFONE = "5511967660123"
+import { getTaniaWhatsappNumero } from "../_shared/tania-whatsapp-numero.ts"
 
 const PERFIL_COMERCIAL_LABEL: Record<string, string> = {
   baixo: "Baixo",
@@ -246,8 +243,13 @@ Deno.serve(async (req) => {
 
     const whatsappToken = Deno.env.get("WHATSAPP_CLOUD_API_TOKEN")
     const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+    // IMPLEMENTATION-CRM-004B — número vem de `settings.tania_whatsapp_numero`
+    // (fallback: env var), nunca mais hardcoded. Ver `_shared/tania-whatsapp-numero.ts`.
+    const taniaTelefone = flagAtiva && whatsappToken && phoneNumberId
+      ? await getTaniaWhatsappNumero(supabase)
+      : null
 
-    if (flagAtiva && whatsappToken && phoneNumberId) {
+    if (flagAtiva && whatsappToken && phoneNumberId && taniaTelefone) {
       const { data: lead } = await supabase
         .from("leads")
         .select("id, nome, telefone, cidade, perfil_comercial, resumo_ia")
@@ -276,7 +278,7 @@ Deno.serve(async (req) => {
         await sendWhatsappFreeText({
           token: whatsappToken,
           phoneNumberId,
-          telefone: TANIA_TELEFONE,
+          telefone: taniaTelefone,
           texto: mensagemParaTania(lead.nome, lead.cidade, lead.telefone, perfilLabel, mapsUrl, resumo),
         })
 

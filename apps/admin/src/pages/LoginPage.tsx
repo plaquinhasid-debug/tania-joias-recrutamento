@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { resolveLoginRedirectTarget } from "@/lib/loginRedirect"
 
 export default function LoginPage() {
   const { session, loading, signIn } = useAuth()
@@ -17,9 +18,13 @@ export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
 
+  // IMPLEMENTATION-CRM-004B (item 4) — `resolveLoginRedirectTarget` preserva
+  // `pathname` + `search` (não só `pathname`), pra um deep link
+  // `/crm?lead=...` acessado deslogada sobreviver ao login. Ver
+  // `lib/loginRedirect.ts`.
   if (!loading && session) {
-    const from = (location.state as { from?: Location })?.from?.pathname ?? "/"
-    return <Navigate to={from} replace />
+    const from = (location.state as { from?: Location })?.from
+    return <Navigate to={resolveLoginRedirectTarget(from)} replace />
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -36,7 +41,8 @@ export default function LoginPage() {
       )
       return
     }
-    navigate("/", { replace: true })
+    const from = (location.state as { from?: Location })?.from
+    navigate(resolveLoginRedirectTarget(from), { replace: true })
   }
 
   return (

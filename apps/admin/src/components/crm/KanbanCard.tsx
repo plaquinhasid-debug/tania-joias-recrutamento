@@ -11,11 +11,12 @@ import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { cn } from "@/lib/utils"
 import { formatDate, formatPhone, formatRelative, whatsappLinkWithMessage } from "@/lib/format"
-import { WHATSAPP_DELIVERY_STATUS_LABEL } from "@/lib/whatsappStatus"
+import { TANIA_NOTIFICATION_STATUS_LABEL, WHATSAPP_DELIVERY_STATUS_LABEL } from "@/lib/whatsappStatus"
 import {
   fichaPendente,
   fichaStatusForLead,
   latestProximaAcao,
+  taniaNotificationStatusForLead,
   whatsappDeliveryStatusForLead,
   type LeadWithAnalysis,
 } from "@/hooks/useLeads"
@@ -40,6 +41,17 @@ const DELIVERY_BADGE_VARIANT: Record<string, "destructive" | "success" | "gold" 
   sent: "gold",
   accepted: "gold",
   no_confirmation: "outline",
+}
+
+// IMPLEMENTATION-CRM-004B (item 9/22) — mesma paleta 🔴🟢🟡⚪ do badge da
+// Ficha, aplicada ao status da notificação da Tania.
+const TANIA_NOTIFICATION_BADGE_VARIANT: Record<string, "destructive" | "success" | "gold" | "outline"> = {
+  failed: "destructive",
+  read: "success",
+  delivered: "success",
+  sent: "gold",
+  accepted: "gold",
+  not_sent: "outline",
 }
 
 interface KanbanCardProps {
@@ -68,6 +80,11 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   // aqui; cada uma revisada individualmente pelo botão abaixo, nunca em massa.
   const semFicha = lead.status === "aprovada" && lead.leads_ficha.length === 0
   const deliveryStatus = pendente ? whatsappDeliveryStatusForLead(lead) : null
+  // IMPLEMENTATION-CRM-004B (item 9/22) — só faz sentido mostrar enquanto a
+  // candidata está esperando a decisão da Tania; puramente informativo,
+  // nunca bloqueia Aprovar/Recusar (esses vivem em TaniaAprovacaoSection).
+  const taniaNotificationStatus =
+    lead.etapa_pos_aprovacao === "aguardando_tania" ? taniaNotificationStatusForLead(lead) : null
 
   function handleGerarFicha(event: MouseEvent) {
     event.stopPropagation()
@@ -212,6 +229,15 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {taniaNotificationStatus && (
+        <div className="mt-2 flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+          <span className="text-[11px] text-muted-foreground">Notificação Tania:</span>
+          <Badge variant={TANIA_NOTIFICATION_BADGE_VARIANT[taniaNotificationStatus.kind]}>
+            {TANIA_NOTIFICATION_STATUS_LABEL[taniaNotificationStatus.kind]}
+          </Badge>
         </div>
       )}
 

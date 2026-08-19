@@ -6,11 +6,6 @@ export const config = {
   api: { bodyParser: false },
 };
 
-// Numero pessoal da Tania (mesmo valor de TANIA_TELEFONE em
-// TaniaAprovacaoSection.tsx, aqui ja com o DDI 55 porque e assim que a Meta
-// manda o campo "from"). So mensagens desse numero podem decidir uma lead.
-const TANIA_TELEFONE = '5511967660123';
-
 const PALAVRAS_APROVACAO = ['sim', 'aprovado', 'aprovo', 'aprovar', 'pode'];
 const PALAVRAS_RECUSA = ['nao', 'recuso', 'recusa', 'recusar', 'nego', 'negar'];
 
@@ -128,6 +123,26 @@ async function supabaseRequest(path, options = {}) {
   });
   if (!result.ok) throw new Error(`Supabase ${result.status}: ${await result.text()}`);
   return result;
+}
+
+// IMPLEMENTATION-CRM-004B — numero da Tania nao fica mais hardcoded aqui.
+// `settings.tania_whatsapp_numero` (mesma linha lida pelo Admin e por
+// `submit-ficha`, ver `_shared/tania-whatsapp-numero.ts`) e a fonte
+// principal; `TANIA_WHATSAPP_NUMBER` so entra se a tabela settings estiver
+// indisponivel. So mensagens desse numero podem decidir uma lead.
+async function getTaniaWhatsappNumero() {
+  try {
+    const result = await supabaseRequest(
+      'settings?chave=eq.tania_whatsapp_numero&select=valor&limit=1',
+    );
+    const rows = await result.json();
+    const numero = rows[0]?.valor?.numero;
+    if (typeof numero === 'string' && numero.trim()) return numero.trim();
+  } catch (err) {
+    console.error('[WhatsApp webhook] falha ao ler settings.tania_whatsapp_numero, tentando fallback', err);
+  }
+  const fallback = process.env.TANIA_WHATSAPP_NUMBER;
+  return fallback && fallback.trim() ? fallback.trim() : null;
 }
 
 async function saveInboundMessage(message, value) {
@@ -298,7 +313,10 @@ async function aplicarDecisaoTania(leadId, decisao) {
 // candidata esperando (mensagem ambígua com 0 ou 2+ candidatas não decide
 // nada sozinha — fica pro clique manual no Admin).
 async function processarDecisaoTania(message) {
-  if (message.from !== TANIA_TELEFONE || message.type !== 'text') return;
+  if (message.type !== 'text') return;
+
+  const taniaTelefone = await getTaniaWhatsappNumero();
+  if (!taniaTelefone || message.from !== taniaTelefone) return;
 
   const decisao = detectarDecisaoTania(message.text?.body);
   if (!decisao) return;

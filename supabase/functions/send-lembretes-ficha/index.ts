@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
         templateName,
         leadId: ficha.lead_id,
         graphApiResponse: resposta,
+        messagePurpose: "LEMBRETE_FICHA",
       })
       enviados += 1
     } catch (err) {
