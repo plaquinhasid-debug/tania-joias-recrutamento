@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase"
-import type { SofiaAnswers } from "@/types/sofia"
 import {
   finalizeCandidateResponseSchema,
   getFichaResponseSchema,
@@ -113,12 +112,15 @@ export async function startConversation({
   }
 }
 
+// IMPLEMENTATION-LGPD-001A — contrato minimizado: só o campo/valor que a
+// candidata acabou de responder, nunca o histórico acumulado da conversa
+// (que incluiria nome/telefone/Instagram real sem necessidade para gerar
+// uma reação de 1-3 linhas). Ver `supabase/functions/_shared/sofia-reacao.ts`.
 interface SofiaReacaoParams {
   intent: "perguntar_proximo" | "fechar"
   campo: string
   valor: string
   proximaPerguntaBase?: string
-  respostasAnteriores: SofiaAnswers
 }
 
 const SOFIA_REACAO_TIMEOUT_MS = 6000

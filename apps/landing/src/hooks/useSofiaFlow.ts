@@ -6,9 +6,11 @@ import { getFbp, getOrBuildFbc, getOrCaptureFbclid } from "@/lib/tracking"
 import type { UtmParams } from "@/lib/tracking"
 import {
   SOFIA_INTRO_LINES,
+  SOFIA_MENOR_IDADE_LINES,
   SOFIA_REJECTION_LINES,
   SOFIA_STEPS,
   findNextStepIndex,
+  isMenorDeIdade,
   type SofiaStep,
 } from "@/data/sofia-script"
 import { AIGateway, SupabaseAIProvider, answerCandidateQuestion, createSofiaOrchestrator } from "@/orchestrator"
@@ -240,8 +242,44 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
     [sessionId, origem, campanha, utm.utm_source, utm.utm_medium, utm.utm_campaign, utm.utm_content],
   )
 
+  /**
+   * IMPLEMENTATION-LGPD-001A — encerramento cordial e definitivo assim que a
+   * idade informada é insuficiente. Nunca chama `runSubmission`/
+   * `finalize-candidate`: nenhum `lead`, `ai_analysis` ou evento CAPI Lead é
+   * criado para esta sessão. Mesmo padrão de fase terminal de
+   * `handleAbandonment` (esconde o input, nunca retoma pergunta nenhuma).
+   */
+  const handleMenorDeIdade = useCallback(async (finalAnswers: SofiaAnswers) => {
+    setBotTyping(true)
+    await wait(300)
+    setBotTyping(false)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: newId(),
+        role: "bot",
+        text: SOFIA_MENOR_IDADE_LINES.join("\n\n"),
+        time: formatTime(new Date()),
+      },
+    ])
+    setPhase("abandoned")
+    orchestratorRef.current?.processTurn(
+      { type: "conversation_ended", status: "abandonada" },
+      { fase: "abandoned", answers: finalAnswers },
+    )
+  }, [])
+
   const advanceAfterAnswer = useCallback(
     async (updatedAnswers: SofiaAnswers, fromIndex: number, answeredKey: SofiaAnswerKey) => {
+      // IMPLEMENTATION-LGPD-001A — checagem ANTES de decidir a próxima
+      // etapa: se a candidata acabou de responder "idade" e é menor de 18,
+      // o processo encerra aqui, sem nunca perguntar telefone/profissão/
+      // empresa/Instagram e sem nunca chamar `finalize-candidate`.
+      if (answeredKey === "idade" && typeof updatedAnswers.idade === "number" && isMenorDeIdade(updatedAnswers.idade)) {
+        await handleMenorDeIdade(updatedAnswers)
+        return
+      }
+
       const next = findNextStepIndex(fromIndex, updatedAnswers)
 
       if (next < SOFIA_STEPS.length) {
@@ -254,12 +292,14 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
           // a busca da reação, pra não expor o input da próxima pergunta
           // antes da Sofia "responder".
           setBotTyping(true)
+          // IMPLEMENTATION-LGPD-001A — só campo+valor da resposta que
+          // acabou de ser dada (nunca o histórico acumulado da conversa,
+          // que incluiria nome/telefone/Instagram real sem necessidade).
           mensagem = await fetchSofiaReacao({
             intent: "perguntar_proximo",
             campo: answeredKey,
             valor: String(updatedAnswers[answeredKey] ?? ""),
             proximaPerguntaBase: SOFIA_STEPS[next].question,
-            respostasAnteriores: updatedAnswers,
           })
         }
 
@@ -308,11 +348,11 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
 
       if (CAMPOS_COM_REACAO_CONTEXTUAL.has(answeredKey)) {
         setBotTyping(true)
+        // IMPLEMENTATION-LGPD-001A — mesma minimização do outro ponto acima.
         const mensagem = await fetchSofiaReacao({
           intent: "fechar",
           campo: answeredKey,
           valor: String(updatedAnswers[answeredKey] ?? ""),
-          respostasAnteriores: updatedAnswers,
         })
         if (mensagem) {
           await pushBotLine(mensagem, CLOSING_LINE_DELAY_MS)
@@ -333,7 +373,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
 
       await runSubmission(updatedAnswers)
     },
-    [pushBotLine, runSubmission],
+    [pushBotLine, runSubmission, handleMenorDeIdade],
   )
 
   /**

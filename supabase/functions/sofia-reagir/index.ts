@@ -17,12 +17,15 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
+// IMPLEMENTATION-LGPD-001A — `respostasAnteriores` removido do contrato:
+// nunca era necessário para a reação de 1-3 linhas, e incluía nome/
+// telefone/Instagram real no prompt enviado à Anthropic. Ver
+// `_shared/sofia-reacao.ts`.
 type Payload = {
   intent: SofiaReacaoIntent
   campo: string
   valor: string
   proximaPerguntaBase?: string
-  respostasAnteriores?: Record<string, unknown>
 }
 
 type SofiaIaAtiva = { ativa: boolean }
@@ -78,7 +81,6 @@ Deno.serve(async (req) => {
       campo: payload.campo,
       valor: payload.valor,
       proximaPerguntaBase: payload.proximaPerguntaBase,
-      respostasAnteriores: payload.respostasAnteriores ?? {},
     })
     return jsonResponse({ mensagem })
   } catch (err) {

@@ -9,6 +9,13 @@
 
 export type SofiaReacaoIntent = "perguntar_proximo" | "fechar"
 
+// IMPLEMENTATION-LGPD-001A — `respostasAnteriores` removido deliberadamente.
+// O histórico acumulado da conversa (nome/telefone/cidade/idade/Instagram
+// real) não é necessário para gerar uma reação curta de 1-3 linhas — só o
+// campo que a candidata acabou de responder. Enviar o histórico inteiro à
+// Anthropic era o maior excesso de dado pessoal identificado na auditoria
+// LGPD deste sistema (RFC-LGPD-001, Seção 7.B); nunca reintroduzir esse
+// campo aqui sem uma nova decisão explícita.
 export interface SofiaReacaoInput {
   apiKey: string
   intent: SofiaReacaoIntent
@@ -16,7 +23,6 @@ export interface SofiaReacaoInput {
   valor: string
   /** Texto estático que seria usado caso a IA estivesse desligada (dá contexto do que ainda falta perguntar). */
   proximaPerguntaBase?: string
-  respostasAnteriores: Record<string, unknown>
 }
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -61,14 +67,13 @@ function buildSystemPrompt(intent: SofiaReacaoIntent): string {
   )
 }
 
-function buildUserPrompt(input: SofiaReacaoInput): string {
-  const contexto = Object.entries(input.respostasAnteriores)
-    .filter(([, v]) => v !== undefined && v !== null && v !== "")
-    .map(([k, v]) => `${k}: ${v}`)
-    .join("\n")
-
+/**
+ * IMPLEMENTATION-LGPD-001A — exportada (era privada) só para permitir teste
+ * direto de que o prompt nunca inclui nada além do campo/valor atual e da
+ * próxima pergunta base. Sem histórico acumulado da conversa.
+ */
+export function buildUserPrompt(input: SofiaReacaoInput): string {
   const linhas = [
-    contexto ? `Respostas já dadas nesta conversa:\n${contexto}` : null,
     `Campo que a candidata acabou de responder: ${input.campo}`,
     `Resposta: "${input.valor}"`,
     input.intent === "perguntar_proximo" && input.proximaPerguntaBase

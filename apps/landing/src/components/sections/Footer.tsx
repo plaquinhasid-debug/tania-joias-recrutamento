@@ -24,7 +24,7 @@ export function Footer() {
 
       <div className="mx-auto mt-6 flex max-w-6xl flex-col items-center gap-2 border-t border-border px-6 pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-center sm:gap-6">
         <a href="/politica-de-privacidade" className="hover:text-foreground">
-          PolÃ­tica de Privacidade
+          Política de Privacidade
         </a>
         <span className="flex items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />

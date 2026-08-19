@@ -55,6 +55,29 @@ export const SOFIA_REPROVADA_FINAL_LINES = [
   "Vamos guardar seu cadastro para futuras oportunidades na Tania Joias.",
 ] as const
 
+// IMPLEMENTATION-LGPD-001A — mesmo valor do gate server-side
+// (`finalize-candidate/logic.ts`, `IDADE_MINIMA`). Duplicado deliberadamente:
+// o encerramento por menoridade precisa acontecer no CLIENTE, antes de
+// telefone/profissão/empresa/Instagram serem perguntados e antes de
+// qualquer chamada a `finalize-candidate` — não dá pra depender só do gate
+// do servidor, que já roda tarde demais (depois de coletar tudo).
+export const IDADE_MINIMA = 18
+
+/** `true` quando a idade informada é insuficiente para seguir no processo. */
+export function isMenorDeIdade(idade: number): boolean {
+  return Number.isInteger(idade) && idade < IDADE_MINIMA
+}
+
+// Texto cordial de encerramento por menoridade — nunca deve soar como um
+// erro de formulário. Diferente de `SOFIA_REJECTION_LINES` (que é sobre não
+// estar trabalhando), este encerramento é definitivo pra ESTA candidatura,
+// mas deixa claro que ela pode voltar ao completar 18 anos.
+export const SOFIA_MENOR_IDADE_LINES = [
+  "Obrigada pelo seu interesse 💛",
+  "Para participar do nosso processo de revendedoras, é necessário ter 18 anos ou mais.",
+  "Quando você completar 18 anos, poderá fazer uma nova inscrição.",
+] as const
+
 interface SofiaStepBase {
   key: SofiaAnswerKey
   question: string
@@ -88,6 +111,19 @@ const instagramHandleSchema = z
   .trim()
   .min(1, "Informe seu @ do Instagram.")
 
+// IMPLEMENTATION-LGPD-001A — deliberadamente SEM `.min(18)` (diferente de
+// `identificacaoSchema.shape.idade`, que continua com o mínimo de 18 pra
+// qualquer outro uso futuro). A candidata precisa conseguir DIGITAR a idade
+// real e ter a resposta aceita — é `useSofiaFlow.ts` (via `isMenorDeIdade`)
+// quem decide o que fazer depois, de forma conversacional (mensagem cordial
+// + encerramento), em vez do formulário rejeitar com um erro de validação
+// cru antes da Sofia sequer "saber" a idade informada.
+const idadeWizardSchema = z.coerce
+  .number({ invalid_type_error: "Informe uma idade válida" })
+  .int()
+  .min(1, "Informe uma idade válida")
+  .max(99, "Informe uma idade válida")
+
 const trabalhaFalso = (answers: SofiaAnswers) => answers.trabalha !== true
 
 /** Roteiro completo, na ordem em que deve ser perguntado. */
@@ -111,7 +147,7 @@ export const SOFIA_STEPS: SofiaStep[] = [
     kind: "text",
     question: "Qual é a sua idade?",
     placeholder: "Ex.: 28",
-    schema: identificacaoSchema.shape.idade,
+    schema: idadeWizardSchema,
   },
   {
     key: "telefone",
