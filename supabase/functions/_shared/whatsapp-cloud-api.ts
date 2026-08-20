@@ -142,6 +142,81 @@ export async function sendWhatsappFichaTemplate({
   return response.json()
 }
 
+export interface SendWhatsappTaniaNotificationTemplateParams {
+  token: string
+  phoneNumberId: string
+  templateName: string
+  telefone: string
+  nome: string
+  cidade: string
+  leadId: string
+}
+
+/**
+ * Envia o template `nova_ficha_tania_utility` (estrutura confirmada no Meta
+ * Business Manager em 20/08/2026) via WhatsApp Cloud API, avisando a Tania
+ * que uma candidata terminou a Ficha e está pronta para análise. Corpo tem 2
+ * variáveis (nome, cidade); o botão "Analisar candidata" é uma URL dinâmica
+ * cuja parte fixa (`https://tania-joias-recrutamento.vercel.app/crm?lead=`)
+ * já está no modelo — só o `lead.id` entra como parâmetro do botão, nunca a
+ * URL inteira (mesmo padrão de `sendWhatsappFichaTemplate` acima).
+ */
+export async function sendWhatsappTaniaNotificationTemplate({
+  token,
+  phoneNumberId,
+  templateName,
+  telefone,
+  nome,
+  cidade,
+  leadId,
+}: SendWhatsappTaniaNotificationTemplateParams): Promise<unknown> {
+  const to = normalizeBrazilPhone(telefone)
+
+  const body = {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: "pt_BR" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: nome },
+            { type: "text", text: cidade },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [{ type: "text", text: leadId }],
+        },
+      ],
+    },
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(`whatsapp_cloud_api_error: ${response.status} ${detail}`)
+  }
+
+  return response.json()
+}
+
 export interface SendWhatsappFreeTextParams {
   token: string
   phoneNumberId: string

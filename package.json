@@ -23,6 +23,7 @@
     "test:login-redirect": "node --import ./tests/register-ts-loader.mjs --test tests/login-redirect.test.mjs",
     "test:tania-falar-com-candidata": "node --import ./tests/register-ts-loader.mjs --test tests/tania-falar-com-candidata.test.mjs",
     "test:tania-whatsapp-numero": "node --import ./tests/register-ts-loader.mjs --test tests/tania-whatsapp-numero.test.mjs",
+    "test:whatsapp-tania-notification-template": "node --import ./tests/register-ts-loader.mjs --test tests/whatsapp-tania-notification-template.test.mjs",
     "test:sofia-reacao-minimizacao": "node --test tests/sofia-reacao-minimizacao.test.mjs",
     "test:sofia-menor-idade": "node --import ./tests/register-ts-loader.mjs --test tests/sofia-menor-idade.test.mjs",
     "test:get-ficha-cors": "node --test tests/get-ficha-cors.test.mjs",

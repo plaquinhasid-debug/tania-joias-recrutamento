@@ -14,51 +14,9 @@
 // ninguém pode reenviar ou sobrescrever uma ficha já enviada.
 import { createClient } from "npm:@supabase/supabase-js@2"
 
-import { sendWhatsappFreeText } from "../_shared/whatsapp-cloud-api.ts"
+import { sendWhatsappTaniaNotificationTemplate } from "../_shared/whatsapp-cloud-api.ts"
+import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 import { getTaniaWhatsappNumero } from "../_shared/tania-whatsapp-numero.ts"
-
-const PERFIL_COMERCIAL_LABEL: Record<string, string> = {
-  baixo: "Baixo",
-  medio: "Médio",
-  alto: "Alto",
-}
-
-function googleMapsUrl(endereco: {
-  endereco_rua: string
-  endereco_numero: string
-  endereco_bairro: string
-  endereco_cidade: string
-  endereco_cep: string
-}): string {
-  const partes = [
-    endereco.endereco_rua,
-    endereco.endereco_numero,
-    endereco.endereco_bairro,
-    endereco.endereco_cidade,
-    endereco.endereco_cep,
-  ].filter(Boolean)
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partes.join(", "))}`
-}
-
-function mensagemParaTania(
-  nome: string,
-  cidade: string | null,
-  telefone: string,
-  perfilLabel: string | null,
-  mapsUrl: string,
-  resumo: string,
-): string {
-  const linhas = [
-    `Oi Tania! A ${nome}${cidade ? ` (${cidade})` : ""} já foi aprovada pelo sistema e completou todo o cadastro — só está faltando sua aprovação final pra liberar o Mostruário pra ela.`,
-    "",
-    `📞 ${telefone}`,
-  ]
-  if (perfilLabel) linhas.push(`⭐ Potencial: ${perfilLabel}`)
-  linhas.push(`📍 ${mapsUrl}`)
-  if (resumo.trim()) linhas.push("", resumo.trim())
-  linhas.push("", "Pode confirmar?")
-  return linhas.join("\n")
-}
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -230,9 +188,15 @@ Deno.serve(async (req) => {
   }
 
   // Notifica a Tania automaticamente pelo WhatsApp oficial, se a flag
-  // estiver ligada. Best-effort e degrada com segurança: se o envio falhar
-  // (ex.: fora da janela de 24h de atendimento), a lead fica em "Confirmada"
-  // e o botão manual "Enviar pra Tania" no Admin continua disponível.
+  // estiver ligada. Best-effort e degrada com segurança: se o envio falhar,
+  // a lead fica em "Confirmada" e o botão manual "Enviar pra Tania" no
+  // Admin continua disponível.
+  //
+  // IMPLEMENTATION-CRM-004C — troca do texto livre (sendWhatsappFreeText,
+  // limitado à janela de 24h de atendimento) pelo template Utility
+  // `nova_ficha_tania_utility` (estrutura confirmada no Meta em 20/08/2026),
+  // que funciona a qualquer hora. Ver `sendWhatsappTaniaNotificationTemplate`
+  // em `_shared/whatsapp-cloud-api.ts` pro payload exato.
   try {
     const { data: settingsRow } = await supabase
       .from("settings")
@@ -243,43 +207,44 @@ Deno.serve(async (req) => {
 
     const whatsappToken = Deno.env.get("WHATSAPP_CLOUD_API_TOKEN")
     const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+    const templateName = Deno.env.get("WHATSAPP_TANIA_NOTIFICATION_TEMPLATE_NAME")
     // IMPLEMENTATION-CRM-004B — número vem de `settings.tania_whatsapp_numero`
     // (fallback: env var), nunca mais hardcoded. Ver `_shared/tania-whatsapp-numero.ts`.
-    const taniaTelefone = flagAtiva && whatsappToken && phoneNumberId
+    const taniaTelefone = flagAtiva && whatsappToken && phoneNumberId && templateName
       ? await getTaniaWhatsappNumero(supabase)
       : null
 
-    if (flagAtiva && whatsappToken && phoneNumberId && taniaTelefone) {
+    if (flagAtiva && whatsappToken && phoneNumberId && templateName && taniaTelefone) {
       const { data: lead } = await supabase
         .from("leads")
-        .select("id, nome, telefone, cidade, perfil_comercial, resumo_ia")
+        .select("id, nome, cidade")
         .eq("id", ficha.lead_id)
         .single()
 
       if (lead) {
-        const { data: analysis } = await supabase
-          .from("ai_analysis")
-          .select("resumo_comercial")
-          .eq("lead_id", lead.id)
-          .maybeSingle()
-
-        const resumo = analysis?.resumo_comercial || lead.resumo_ia || ""
-        const perfilLabel = lead.perfil_comercial
-          ? PERFIL_COMERCIAL_LABEL[lead.perfil_comercial as string] ?? null
-          : null
-        const mapsUrl = googleMapsUrl({
-          endereco_rua: patch.endereco_rua as string,
-          endereco_numero: patch.endereco_numero as string,
-          endereco_bairro: patch.endereco_bairro as string,
-          endereco_cidade: patch.endereco_cidade as string,
-          endereco_cep: patch.endereco_cep as string,
-        })
-
-        await sendWhatsappFreeText({
+        const graphApiResponse = await sendWhatsappTaniaNotificationTemplate({
           token: whatsappToken,
           phoneNumberId,
+          templateName,
           telefone: taniaTelefone,
-          texto: mensagemParaTania(lead.nome, lead.cidade, lead.telefone, perfilLabel, mapsUrl, resumo),
+          nome: lead.nome,
+          // Corpo do template não tolera variável vazia — cidade é obrigatória
+          // no wizard da Sofia (min. 2 caracteres), mas o schema de `leads`
+          // ainda permite NULL, daí o fallback defensivo.
+          cidade: lead.cidade?.trim() || "Não informada",
+          leadId: lead.id,
+        })
+
+        // IMPLEMENTATION-015B — mesmo registro do wamid dos outros 3 envios
+        // de template (Ficha/lembrete/aprovação), pro webhook poder
+        // rastrear status de entrega também da notificação da Tania.
+        await recordOutboundWhatsappMessage({
+          supabase,
+          telefone: taniaTelefone,
+          templateName,
+          leadId: lead.id,
+          graphApiResponse,
+          messagePurpose: "NOTIFICACAO_TANIA",
         })
 
         // Só avança pra "Aguardando aprovação da Tania" se a mensagem saiu —
