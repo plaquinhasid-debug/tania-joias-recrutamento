@@ -153,7 +153,13 @@ export const PIPELINE_COLUMNS: PipelineColumn[] = [
   // interno do enum e `LEAD_STATUS_LABEL.aprovada` (badge, filtros) continuam
   // "Aprovada" — só a etiqueta do card muda, pra deixar a próxima ação óbvia.
   { key: "aprovada", label: "Pré-aprovada / Gerar ficha", color: LEAD_STATUS_COLOR.aprovada },
-  { key: "contatada", label: ETAPA_POS_APROVACAO_LABEL.contatada, color: ETAPA_POS_APROVACAO_COLOR.contatada },
+  // IMPLEMENTATION-CRM-005B — mesmo padrão da coluna "aprovada" acima: rótulo
+  // só do Kanban, decolado de `ETAPA_POS_APROVACAO_LABEL.contatada` (que
+  // continua "Contato manual / Ficha pendente" pra quem lê a etapa fora do
+  // board, ex. `LeadDetailDrawer.tsx`). "Contato manual" deixou de descrever
+  // bem essa coluna depois do botão rastreado (`useSendFichaWhatsapp`) — boa
+  // parte dos casos aqui não é mais contato manual.
+  { key: "contatada", label: "Ficha pendente", color: ETAPA_POS_APROVACAO_COLOR.contatada },
   {
     key: "confirmada",
     label: "Aguardando aprovação da Tania",

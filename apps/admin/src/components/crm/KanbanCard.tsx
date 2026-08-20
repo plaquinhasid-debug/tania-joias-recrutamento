@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from "react"
 import { toast } from "sonner"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ClipboardCheck, PhoneCall } from "lucide-react"
+import { ClipboardCheck, Loader2, PhoneCall } from "lucide-react"
 import { ETAPA_DETALHE_LABEL, PROXIMA_ACAO_LABEL, pipelineColumnKeyForLead } from "@tania-joias/shared"
 
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +11,7 @@ import { PerfilComercialBadge } from "@/components/leads/PerfilComercialBadge"
 import { PROXIMA_ACAO_VARIANT } from "@/components/leads/SofiaAnalysisCard"
 import { cn } from "@/lib/utils"
 import { formatDate, formatPhone, formatRelative, whatsappLinkWithMessage } from "@/lib/format"
-import { TANIA_NOTIFICATION_STATUS_LABEL, WHATSAPP_DELIVERY_STATUS_LABEL } from "@/lib/whatsappStatus"
+import { TANIA_NOTIFICATION_STATUS_LABEL, type WhatsappDeliveryStatusKind } from "@/lib/whatsappStatus"
 import {
   fichaPendente,
   fichaStatusForLead,
@@ -20,7 +20,28 @@ import {
   whatsappDeliveryStatusForLead,
   type LeadWithAnalysis,
 } from "@/hooks/useLeads"
-import { fichaLinkUrl, useGenerateFichaLink, useMarkManualContact } from "@/hooks/useLeadFicha"
+import {
+  fichaLinkUrl,
+  sendFichaWhatsappSkipMessage,
+  useGenerateFichaLink,
+  useMarkManualContact,
+  useSendFichaWhatsapp,
+} from "@/hooks/useLeadFicha"
+
+// IMPLEMENTATION-CRM-005B — texto específico da coluna "Ficha pendente" do
+// Kanban, deliberadamente separado do label de status de entrega
+// compartilhado (`lib/whatsappStatus.ts`), que também alimenta o badge já
+// validado em produção dentro do Drawer (`FichaAprovacaoSection.tsx`) —
+// mudar aquele mudaria os dois lugares. Aqui o texto é sobre AÇÃO
+// operacional ("o que fazer agora"), não sobre o estado técnico do WhatsApp.
+const KANBAN_FICHA_PENDENTE_STATUS_LABEL: Record<WhatsappDeliveryStatusKind, string> = {
+  no_confirmation: "Ficha ainda não enviada",
+  accepted: "Ficha enviada — aguardando entrega",
+  sent: "Ficha enviada — aguardando entrega",
+  delivered: "Ficha entregue — aguardando preenchimento",
+  read: "Ficha lida — aguardando preenchimento",
+  failed: "Falha no envio da ficha",
+}
 
 /**
  * IMPLEMENTATION-CRM-002A — texto único usado pelo botão "Abrir WhatsApp",
@@ -65,6 +86,7 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
   })
   const generateLink = useGenerateFichaLink()
   const markContact = useMarkManualContact()
+  const sendFicha = useSendFichaWhatsapp()
   const [confirmandoContato, setConfirmandoContato] = useState(false)
 
   const style = {
@@ -92,6 +114,25 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
     generateLink.mutate(lead.id, {
       onError: () => toast.error("Não foi possível gerar o link da ficha."),
     })
+  }
+
+  // IMPLEMENTATION-CRM-005B — mesma ação rastreada já validada no Drawer
+  // (`FichaAprovacaoSection.tsx`), só ecoada aqui pro card; nenhuma lógica
+  // de envio nova, reaproveita `useSendFichaWhatsapp` (que já embute a
+  // idempotência de `send-whatsapp-ficha`).
+  async function handleEnviarFichaWhatsapp(event: MouseEvent) {
+    event.stopPropagation()
+    if (sendFicha.isPending) return
+    try {
+      const result = await sendFicha.mutateAsync(lead.id)
+      if (result.skipped) {
+        toast.info(sendFichaWhatsappSkipMessage(result.reason))
+        return
+      }
+      toast.success("Ficha enviada pelo WhatsApp!")
+    } catch {
+      toast.error("Não foi possível enviar a ficha. Tente novamente.")
+    }
   }
 
   function handleAbrirWhatsapp(event: MouseEvent) {
@@ -180,12 +221,26 @@ export function KanbanCard({ lead, onClick }: KanbanCardProps) {
         <div className="mt-2 space-y-1.5" onClick={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-between gap-2">
             <Badge variant={DELIVERY_BADGE_VARIANT[deliveryStatus.kind]}>
-              {WHATSAPP_DELIVERY_STATUS_LABEL[deliveryStatus.kind]}
+              {KANBAN_FICHA_PENDENTE_STATUS_LABEL[deliveryStatus.kind]}
             </Badge>
             <span className="text-[11px] text-muted-foreground">
               {formatRelative(pendente.criado_em)}
             </span>
           </div>
+
+          {deliveryStatus.kind === "no_confirmation" && (
+            <Button
+              size="sm"
+              variant="gold"
+              className="w-full"
+              disabled={lead.whatsapp !== true || sendFicha.isPending}
+              onClick={(event) => void handleEnviarFichaWhatsapp(event)}
+            >
+              {sendFicha.isPending && <Loader2 className="size-3.5 animate-spin" />}
+              Enviar ficha pelo WhatsApp
+            </Button>
+          )}
+
           {deliveryStatus.kind === "failed" && deliveryStatus.errorCode && (
             <p className="text-[11px] text-destructive">Código Meta: {deliveryStatus.errorCode}</p>
           )}
