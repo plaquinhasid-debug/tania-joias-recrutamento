@@ -5,26 +5,32 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fichaLinkUrl, useGenerateFichaLink, useLeadFicha } from "@/hooks/useLeadFicha"
-import { formatDateTime, googleMapsUrl, whatsappLinkWithMessage } from "@/lib/format"
+import {
+  fichaLinkUrl,
+  sendFichaWhatsappSkipMessage,
+  useGenerateFichaLink,
+  useLeadFicha,
+  useLeadFichaWhatsappMessages,
+  useSendFichaWhatsapp,
+} from "@/hooks/useLeadFicha"
+import { formatDateTime, googleMapsUrl } from "@/lib/format"
+import { deriveWhatsappDeliveryStatus, WHATSAPP_DELIVERY_STATUS_LABEL } from "@/lib/whatsappStatus"
 
 interface FichaAprovacaoSectionProps {
   leadId: string
-  leadNome: string
-  leadTelefone: string
   leadWhatsapp: boolean | null
 }
 
-/**
- * Mensagem amigável explicando o link da Ficha — a candidata precisa
- * entender que é pra clicar e preencher, não só receber um link solto.
- * IMPLEMENTATION-CRM-002A — texto alinhado ao usado no Kanban (`KanbanCard.tsx`),
- * revisado na 015D pra evitar linguagem de incentivo/desbloqueio ("liberar
- * seu Mostruário") que pode atrapalhar a classificação Utility do template.
- */
-function mensagemFicha(nome: string, token: string): string {
-  const primeiroNome = nome.trim().split(/\s+/)[0] ?? ""
-  return `Oi, ${primeiroNome}! Seu cadastro avançou para a 2ª etapa. Para continuar, preencha sua Ficha de Aprovação no link abaixo:\n\n${fichaLinkUrl(token)}`
+// Mesmo mapeamento de cor já usado em `KanbanCard.tsx` pro selo de status de
+// entrega — duplicado aqui (não extraído pra `lib/whatsappStatus.ts`) porque
+// é só uma constante de estilo, não lógica de negócio.
+const DELIVERY_BADGE_VARIANT: Record<string, "destructive" | "success" | "gold" | "outline"> = {
+  failed: "destructive",
+  read: "success",
+  delivered: "success",
+  sent: "gold",
+  accepted: "gold",
+  no_confirmation: "outline",
 }
 
 function CampoPreenchido({ label, value }: { label: string; value: string | null }) {
@@ -36,14 +42,11 @@ function CampoPreenchido({ label, value }: { label: string; value: string | null
   )
 }
 
-export function FichaAprovacaoSection({
-  leadId,
-  leadNome,
-  leadTelefone,
-  leadWhatsapp,
-}: FichaAprovacaoSectionProps) {
+export function FichaAprovacaoSection({ leadId, leadWhatsapp }: FichaAprovacaoSectionProps) {
   const { data: ficha, isLoading } = useLeadFicha(leadId)
   const generateLink = useGenerateFichaLink()
+  const sendFicha = useSendFichaWhatsapp()
+  const { data: whatsappMessages } = useLeadFichaWhatsappMessages(leadId)
 
   async function handleGenerate() {
     try {
@@ -57,6 +60,25 @@ export function FichaAprovacaoSection({
   function handleCopyLink(token: string) {
     navigator.clipboard.writeText(fichaLinkUrl(token))
     toast.success("Link copiado!")
+  }
+
+  // IMPLEMENTATION-CRM-005A — substitui o antigo link manual pré-preenchido
+  // (aberto em nova aba pro operador clicar "Enviar" dentro do WhatsApp)
+  // por um envio de verdade via `send-whatsapp-ficha` (mesmo template
+  // `ficha_aprovacao_link_utility` já validado no caminho automático). A
+  // Edge Function já é idempotente (`already_sent`) — aqui só traduzimos o
+  // resultado pra uma mensagem clara, nunca reimplementamos a checagem.
+  async function handleSendWhatsapp() {
+    try {
+      const result = await sendFicha.mutateAsync(leadId)
+      if (result.skipped) {
+        toast.info(sendFichaWhatsappSkipMessage(result.reason))
+        return
+      }
+      toast.success("Ficha enviada pelo WhatsApp!")
+    } catch {
+      toast.error("Não foi possível enviar a ficha. Tente novamente.")
+    }
   }
 
   return (
@@ -90,25 +112,46 @@ export function FichaAprovacaoSection({
               Copiar
             </Button>
           </div>
-          <Button
-            size="sm"
-            variant="gold"
-            className="w-full"
-            disabled={!leadWhatsapp}
-            onClick={() => {
-              const link = whatsappLinkWithMessage(
-                leadTelefone,
-                mensagemFicha(leadNome, ficha.token),
+          {ficha.whatsapp_enviado_em ? (
+            (() => {
+              const deliveryStatus = deriveWhatsappDeliveryStatus({
+                whatsappEnviadoEm: ficha.whatsapp_enviado_em,
+                messages: whatsappMessages,
+              })
+              return (
+                <div className="space-y-1">
+                  <Badge variant={DELIVERY_BADGE_VARIANT[deliveryStatus.kind]} className="gap-1">
+                    <MessageCircle className="size-3.5" />
+                    {WHATSAPP_DELIVERY_STATUS_LABEL[deliveryStatus.kind]}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Ficha enviada pelo WhatsApp em {formatDateTime(ficha.whatsapp_enviado_em)}.
+                  </p>
+                </div>
               )
-              if (link) window.open(link, "_blank", "noopener,noreferrer")
-            }}
-          >
-            <MessageCircle className="size-3.5" />
-            Mandar pelo WhatsApp
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Abre o WhatsApp já com o link e uma mensagem explicando o próximo passo.
-          </p>
+            })()
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="gold"
+                className="w-full"
+                disabled={!leadWhatsapp || sendFicha.isPending}
+                onClick={() => void handleSendWhatsapp()}
+              >
+                {sendFicha.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <MessageCircle className="size-3.5" />
+                )}
+                Enviar ficha pelo WhatsApp
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Envia o modelo aprovado pela Meta com o link da Ficha e passa a rastrear entrega/leitura
+                automaticamente.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

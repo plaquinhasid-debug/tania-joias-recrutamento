@@ -218,12 +218,7 @@ export function LeadDetailDrawer({ leadId, onOpenChange }: LeadDetailDrawerProps
 
                   <Separator />
 
-                  <FichaAprovacaoSection
-                    leadId={lead.id}
-                    leadNome={lead.nome}
-                    leadTelefone={lead.telefone}
-                    leadWhatsapp={lead.whatsapp}
-                  />
+                  <FichaAprovacaoSection leadId={lead.id} leadWhatsapp={lead.whatsapp} />
 
                   {(lead.etapa_pos_aprovacao === "confirmada" ||
                     lead.etapa_pos_aprovacao === "aguardando_tania") && (
