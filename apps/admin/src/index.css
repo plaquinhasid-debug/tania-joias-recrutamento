@@ -4,69 +4,69 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  /* Tania Joias — identidade visual: branco / preto / dourado / cinza claro */
-  --background: #ffffff;
-  --foreground: #121212;
+  /* Tania Joias — identidade visual: marfim / dourado / marrom-carvão (design-guide.md) */
+  --background: oklch(0.97 0.012 80);
+  --foreground: oklch(0.24 0.02 50);
 
-  --card: #ffffff;
-  --card-foreground: #121212;
+  --card: oklch(0.995 0.006 80);
+  --card-foreground: oklch(0.24 0.02 50);
 
-  --popover: #ffffff;
-  --popover-foreground: #121212;
+  --popover: oklch(0.995 0.006 80);
+  --popover-foreground: oklch(0.24 0.02 50);
 
-  --primary: #121212;
-  --primary-foreground: #ffffff;
+  --primary: oklch(0.53 0.12 75);
+  --primary-foreground: oklch(0.98 0.01 80);
 
-  --secondary: #f5f4f2;
-  --secondary-foreground: #121212;
+  --secondary: oklch(0.94 0.015 78);
+  --secondary-foreground: oklch(0.3 0.03 60);
 
-  --muted: #f5f4f2;
-  --muted-foreground: #6b6b6b;
+  --muted: oklch(0.94 0.015 78);
+  --muted-foreground: oklch(0.5 0.02 55);
 
-  --accent: #c6a664;
-  --accent-foreground: #121212;
+  --accent: oklch(0.94 0.035 78);
+  --accent-foreground: oklch(0.4 0.08 70);
 
-  --gold: #c6a664;
-  --gold-foreground: #121212;
+  --gold: oklch(0.53 0.12 75);
+  --gold-foreground: oklch(0.98 0.01 80);
 
-  --destructive: #b3261e;
-  --destructive-foreground: #ffffff;
+  --destructive: oklch(0.55 0.15 25);
+  --destructive-foreground: oklch(0.98 0 0);
 
-  --success: #1f8a4c;
-  --success-foreground: #ffffff;
+  --success: oklch(0.58 0.09 145);
+  --success-foreground: oklch(0.98 0 0);
 
-  --border: #e7e5e1;
-  --input: #e7e5e1;
-  --ring: #c6a664;
+  --border: oklch(0.89 0.012 75);
+  --input: oklch(0.89 0.012 75);
+  --ring: oklch(0.53 0.12 75);
 }
 
 .dark {
-  --background: #121212;
-  --foreground: #f5f4f2;
+  --background: oklch(0.17 0.018 50);
+  --foreground: oklch(0.94 0.015 75);
 
-  --card: #191919;
-  --card-foreground: #f5f4f2;
+  --card: oklch(0.21 0.02 50);
+  --card-foreground: oklch(0.94 0.015 75);
 
-  --popover: #191919;
-  --popover-foreground: #f5f4f2;
+  --popover: oklch(0.21 0.02 50);
+  --popover-foreground: oklch(0.94 0.015 75);
 
-  --primary: #f5f4f2;
-  --primary-foreground: #121212;
+  --primary: oklch(0.68 0.13 78);
+  --primary-foreground: oklch(0.16 0.02 78);
 
-  --secondary: #1f1f1f;
-  --secondary-foreground: #f5f4f2;
+  --secondary: oklch(0.26 0.018 50);
+  --secondary-foreground: oklch(0.94 0.015 75);
 
-  --muted: #1f1f1f;
-  --muted-foreground: #a3a3a3;
+  --muted: oklch(0.26 0.018 50);
+  --muted-foreground: oklch(0.68 0.02 60);
 
-  --accent: #c6a664;
-  --accent-foreground: #121212;
+  --accent: oklch(0.3 0.05 78);
+  --accent-foreground: oklch(0.95 0.02 78);
 
-  --border: #2a2a2a;
-  --input: #2a2a2a;
-  --ring: #c6a664;
+  --border: oklch(0.3 0.018 50);
+  --input: oklch(0.3 0.018 50);
+  --ring: oklch(0.68 0.13 78);
 }
 
 @theme inline {
@@ -99,7 +99,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
 }
 
