@@ -58,6 +58,21 @@ export function TaniaAprovacaoSection({
     return null
   }
 
+  // IMPLEMENTATION-CRM-004C — troca `window.open()` por um `<a href>` real
+  // (via `Button asChild`). Em Android, `window.open()` abre a navegação
+  // dentro de uma aba nova criada por script, o que faz o SO resolver o elo
+  // `wa.me` por um caminho diferente do de um clique de link genuíno —
+  // na prática, abrindo o WhatsApp pessoal em vez do WhatsApp Business
+  // (mesmo com o número de destino sempre correto). Um `<a href>` navegado
+  // por toque real do usuário segue o mesmo caminho de resolução de App
+  // Link que já funciona ao digitar o link manualmente. Número e mensagem
+  // continuam vindo de `whatsappLinkWithMessage` + `mensagemFalarComCandidata`,
+  // sem nenhuma mudança.
+  const linkFalarComCandidata = whatsappLinkWithMessage(
+    leadTelefone,
+    mensagemFalarComCandidata(leadNome),
+  )
+
   function handleEnviarTania() {
     if (!taniaTelefone) {
       toast.error("Número da Tania não configurado. Veja Configurações.")
@@ -77,15 +92,6 @@ export function TaniaAprovacaoSection({
     updateLead
       .mutateAsync({ id: leadId, patch: { etapa_pos_aprovacao: "aguardando_tania" } })
       .catch(() => toast.error("Mensagem aberta, mas não deu pra mover o card. Mova manualmente."))
-  }
-
-  // IMPLEMENTATION-CRM-004B (item 3) — fala DIRETO com a candidata (número
-  // dela, `leadTelefone`), distinto de `handleEnviarTania` (fala com a
-  // Tania SOBRE a candidata). Só abre o WhatsApp — nunca envia sozinho, nunca
-  // grava nenhum status só por abrir o link.
-  function handleFalarComCandidata() {
-    const link = whatsappLinkWithMessage(leadTelefone, mensagemFalarComCandidata(leadNome))
-    if (link) window.open(link, "_blank", "noopener,noreferrer")
   }
 
   async function handleResposta(aprovou: boolean) {
@@ -137,15 +143,19 @@ export function TaniaAprovacaoSection({
           </Button>
         </div>
 
-        <Button
-          size="lg"
-          variant="gold"
-          className="w-full"
-          onClick={handleFalarComCandidata}
-        >
-          <MessageCircle className="size-4" />
-          Falar com a candidata
-        </Button>
+        {linkFalarComCandidata ? (
+          <Button asChild size="lg" variant="gold" className="w-full">
+            <a href={linkFalarComCandidata} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="size-4" />
+              Falar com a candidata
+            </a>
+          </Button>
+        ) : (
+          <Button size="lg" variant="gold" className="w-full" disabled>
+            <MessageCircle className="size-4" />
+            Falar com a candidata
+          </Button>
+        )}
 
         <div className="border-t border-border pt-2">
           {leadEtapa === "aguardando_tania" && (
