@@ -10,6 +10,7 @@ import {
   SOFIA_REJECTION_LINES,
   SOFIA_STEPS,
   findNextStepIndex,
+  isInstagramSkipSignal,
   isMenorDeIdade,
   type SofiaStep,
 } from "@/data/sofia-script"
@@ -512,6 +513,23 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         questionLabel: step.question,
         answerValue: String(displayText),
       })
+
+      // Auditoria set/2026 — a etapa do @ do Instagram é OPCIONAL e nunca pode
+      // prender a candidata no loop de "não peguei sua resposta"
+      // (`handleNonAnswerMessage`/`handleCandidateQuestion` re-perguntam sem
+      // limite). Ela NÃO passa pelo classificador contextual: sinal de "não
+      // sei / não tenho / não quero informar" (`isInstagramSkipSignal`) segue
+      // com `instagram = null` — nunca inventamos um @; qualquer outro texto
+      // (com @, sem @, nome do perfil, link) é aceito como informado. Instagram
+      // não é gate de elegibilidade e no IPR vale pontos só pela presença do
+      // campo (`finalize-candidate/logic.ts`), então pular apenas deixa de
+      // somar esses pontos — nunca reprova.
+      if (step.key === "instagram" && typeof value === "string") {
+        provisionalAnswers.instagram = isInstagramSkipSignal(value) ? null : value.trim()
+        setAnswers(provisionalAnswers)
+        void advanceAfterAnswer(provisionalAnswers, stepIndex + 1, step.key)
+        return
+      }
 
       // FEATURE-005 Parte 7 (revisado na Parte 7.1, Correção 2): campos de
       // texto livre (nunca "trabalha", que continua 100% hardcoded, nem os

@@ -68,6 +68,57 @@ export function isMenorDeIdade(idade: number): boolean {
   return Number.isInteger(idade) && idade < IDADE_MINIMA
 }
 
+// Auditoria set/2026 — a etapa "Qual é o seu @ do Instagram?" prendia a
+// candidata num loop de "não peguei sua resposta" quando ela dizia que possui
+// Instagram mas respondia com algo que o classificador não reconhecia como
+// handle (nome do perfil/negócio, "não uso muito", etc.). Caso real: 9
+// tentativas e abandono. `isInstagramSkipSignal` distingue "não sei / não
+// tenho / não quero informar" (segue SEM Instagram, campo nulo — nunca
+// inventamos um @) de um valor informado de verdade. Lista curta e
+// conservadora, mesma filosofia baseada em marcador do resto do roteiro
+// (não é NLP). Instagram NÃO é gate de elegibilidade (`finalize-candidate/
+// logic.ts` -> `calcularElegibilidade`); no IPR ele soma pontos apenas pela
+// PRESENÇA do campo (`instagram: payload.instagram ? pesos.instagram : 0`),
+// então quem pular só deixa de somar esses pontos — nunca é reprovada por isso.
+export function isInstagramSkipSignal(raw: string): boolean {
+  const texto = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[.!?…]+$/u, "")
+    .trim()
+
+  if (!texto) return true
+
+  const EXATOS = new Set(["nao", "n", "-", "--", "x", "nenhum", "nenhuma", "pular", "passar", "skip"])
+  if (EXATOS.has(texto)) return true
+
+  const CONTIDOS = [
+    "nao sei",
+    "n sei",
+    "sei nao",
+    "nao lembro",
+    "n lembro",
+    "nao me lembro",
+    "nao recordo",
+    "nao tenho",
+    "n tenho",
+    "nao possuo",
+    "nao uso",
+    "n uso",
+    "quase nao uso",
+    "nao mexo",
+    "sem instagram",
+    "nao tenho conta",
+    "nao quero",
+    "prefiro nao",
+    "nao vou informar",
+    "nao informo",
+  ]
+  return CONTIDOS.some((marcador) => texto.includes(marcador))
+}
+
 // Texto cordial de encerramento por menoridade — nunca deve soar como um
 // erro de formulário. Diferente de `SOFIA_REJECTION_LINES` (que é sobre não
 // estar trabalhando), este encerramento é definitivo pra ESTA candidatura,
@@ -109,7 +160,11 @@ export type SofiaStep = SofiaTextStep | SofiaYesNoStep | SofiaChipsStep
 const instagramHandleSchema = z
   .string()
   .trim()
-  .min(1, "Informe seu @ do Instagram.")
+  // `.min(1)` só garante que a candidata escreveu ALGUMA coisa (um @, o nome
+  // do perfil, ou "não tenho" pra pular) — nunca é gate de aprovação. Quem
+  // pula tem o campo tratado como nulo em `useSofiaFlow` (ver
+  // `isInstagramSkipSignal`).
+  .min(1, 'Escreva seu @ do Instagram ou "não tenho".')
 
 // IMPLEMENTATION-LGPD-001A — deliberadamente SEM `.min(18)` (diferente de
 // `identificacaoSchema.shape.idade`, que continua com o mínimo de 18 pra
@@ -228,8 +283,14 @@ export const SOFIA_STEPS: SofiaStep[] = [
   {
     key: "instagram",
     kind: "text",
-    question: "Qual é o seu @ do Instagram?",
-    placeholder: "@seuusuario",
+    // Auditoria set/2026 — a pergunta central ("Qual é o seu @ do Instagram?")
+    // é preservada, mas agora traz uma saída explícita: a candidata que não
+    // tiver/não lembrar escreve "não tenho" e o fluxo segue sem Instagram, em
+    // vez de ficar re-perguntando (ver `isInstagramSkipSignal` e o tratamento
+    // desta etapa em `useSofiaFlow.ts`).
+    question:
+      'Qual é o seu @ do Instagram?\n\nSe você não tiver ou não lembrar agora, é só escrever "não tenho" que a gente segue sem.',
+    placeholder: '@seuusuario (ou "não tenho")',
     schema: instagramHandleSchema,
     skip: (answers) => trabalhaFalso(answers) || answers.possui_instagram !== true,
   },

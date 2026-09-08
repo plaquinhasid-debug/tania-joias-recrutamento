@@ -29,6 +29,7 @@
     "test:realtime-leads-whatsapp-messages": "node --import ./tests/register-ts-loader.mjs --test tests/realtime-leads-whatsapp-messages.test.mjs",
     "test:sofia-reacao-minimizacao": "node --test tests/sofia-reacao-minimizacao.test.mjs",
     "test:sofia-menor-idade": "node --import ./tests/register-ts-loader.mjs --test tests/sofia-menor-idade.test.mjs",
+    "test:instagram-nao-bloqueante": "node --import ./tests/register-ts-loader.mjs --test tests/instagram-nao-bloqueante.test.mjs",
     "test:get-ficha-cors": "node --test tests/get-ficha-cors.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
