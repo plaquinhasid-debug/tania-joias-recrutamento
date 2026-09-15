@@ -31,6 +31,7 @@
     "test:sofia-menor-idade": "node --import ./tests/register-ts-loader.mjs --test tests/sofia-menor-idade.test.mjs",
     "test:instagram-nao-bloqueante": "node --import ./tests/register-ts-loader.mjs --test tests/instagram-nao-bloqueante.test.mjs",
     "test:get-ficha-cors": "node --test tests/get-ficha-cors.test.mjs",
+    "test:brazilian-phone-normalization": "node --import ./tests/register-ts-loader.mjs --test tests/brazilian-phone-normalization.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",
