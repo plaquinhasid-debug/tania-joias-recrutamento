@@ -32,6 +32,7 @@
     "test:instagram-nao-bloqueante": "node --import ./tests/register-ts-loader.mjs --test tests/instagram-nao-bloqueante.test.mjs",
     "test:get-ficha-cors": "node --test tests/get-ficha-cors.test.mjs",
     "test:brazilian-phone-normalization": "node --import ./tests/register-ts-loader.mjs --test tests/brazilian-phone-normalization.test.mjs",
+    "test:embaixadoras-v1-migration-invariants": "node --test tests/embaixadoras-v1-migration-invariants.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",
