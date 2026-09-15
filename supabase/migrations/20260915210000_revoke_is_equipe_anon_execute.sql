@@ -1,0 +1,17 @@
+-- EMBAIXADORAS TANIA JOIAS V1 — E2.1-bis-E: fecha o EXECUTE de anon em
+-- is_equipe(). Migration NOVA e isolada — a
+-- harden_authenticated_staff_authorization (20260915200000/remoto
+-- 20260915193027) já foi aplicada e NÃO é editada aqui.
+--
+-- Achado da auditoria pós-aplicação (E2.1-bis-D): `REVOKE ALL ON
+-- FUNCTION public.is_equipe() FROM PUBLIC` (na migration anterior) não
+-- bastou. Este projeto tem um `ALTER DEFAULT PRIVILEGES` no schema
+-- public que concede EXECUTE em toda função nova diretamente aos roles
+-- nomeados `anon`/`authenticated`/`service_role` (confirmado via
+-- pg_default_acl, defaclobjtype='f') — não via o pseudo-role PUBLIC.
+-- REVOKE ... FROM PUBLIC nunca alcança um grant direto a um role
+-- nomeado; é preciso revogar do role específico. Não altero os default
+-- privileges globais do projeto aqui — só o grant já concedido nesta
+-- função específica.
+revoke execute on function public.is_equipe() from anon;
+-- authenticated mantém EXECUTE (intencional, inalterado).
