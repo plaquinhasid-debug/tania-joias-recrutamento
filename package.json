@@ -35,6 +35,7 @@
     "test:embaixadoras-v1-migration-invariants": "node --test tests/embaixadoras-v1-migration-invariants.test.mjs",
     "test:embaixadoras-e21-invite-hardening": "node --test tests/embaixadoras-e21-invite-hardening.test.mjs",
     "test:embaixadoras-e22b-email-unique-ci": "node --test tests/embaixadoras-e22b-email-unique-ci.test.mjs",
+    "test:create-ambassador-invite": "node --import ./tests/register-ts-loader.mjs --test tests/create-ambassador-invite.test.mjs",
     "test:embaixadoras-e21bis-staff-authorization": "node --test tests/embaixadoras-e21bis-staff-authorization.test.mjs",
     "test:embaixadoras-e21bis-revoke-anon-execute": "node --test tests/embaixadoras-e21bis-revoke-anon-execute.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
