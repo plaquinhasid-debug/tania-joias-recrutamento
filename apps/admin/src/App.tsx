@@ -6,6 +6,7 @@ import LoginPage from "@/pages/LoginPage"
 import DashboardPage from "@/pages/DashboardPage"
 import LeadsPage from "@/pages/LeadsPage"
 import CrmPage from "@/pages/CrmPage"
+import EmbaixadorasPage from "@/pages/EmbaixadorasPage"
 import ReportsPage from "@/pages/ReportsPage"
 import RadarPage from "@/pages/RadarPage"
 import AbandonmentPage from "@/pages/AbandonmentPage"
@@ -21,6 +22,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="crm" element={<CrmPage />} />
+          <Route path="embaixadoras" element={<EmbaixadorasPage />} />
           <Route path="relatorios" element={<ReportsPage />} />
           <Route path="radar" element={<RadarPage />} />
           <Route path="abandonos" element={<AbandonmentPage />} />

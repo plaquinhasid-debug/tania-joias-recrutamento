@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom"
 import {
   BarChart3,
+  Gem,
   KanbanSquare,
   LayoutDashboard,
   Radar,
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/leads", label: "Leads", icon: Users },
   { to: "/crm", label: "CRM", icon: KanbanSquare },
+  { to: "/embaixadoras", label: "Embaixadoras", icon: Gem },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/radar", label: "Radar da Sofia", icon: Radar },
   { to: "/abandonos", label: "Abandonos", icon: UserX },

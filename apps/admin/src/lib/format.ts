@@ -48,6 +48,30 @@ export function formatPhone(telefone: string | null | undefined): string {
   return telefone ?? "—"
 }
 
+// IMPLEMENTATION-EMBAIXADORAS-E2.3-E — `formatPhone` (acima) não trata o
+// prefixo "55" que `embaixadoras.telefone_normalizado` sempre carrega
+// (formato canônico de packages/shared/src/phone.ts: "55" + DDD + local, 12
+// ou 13 dígitos) — passado direto, cairia no fallback e devolveria o número
+// cru sem formatação. Função nova e pequena, só de apresentação, que retira
+// o "55" e delega pro `formatPhone` já existente (não duplica a lógica de
+// "(DD) XXXXX-XXXX"). NÃO mexe em `packages/shared/src/phone.ts` — a
+// normalização oficial pra persistência continua intocada; isto é só leitura.
+export function formatTelefoneNormalizado(telefoneNormalizado: string | null | undefined): string {
+  const digits = onlyDigits(telefoneNormalizado)
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+    return formatPhone(digits.slice(2))
+  }
+  // `??` só cobre null/undefined — uma string vazia ("") precisa do mesmo
+  // fallback, senão a célula ficaria em branco em vez de mostrar "—".
+  return telefoneNormalizado ? telefoneNormalizado : "—"
+}
+
+/** Apresenta um único @ inicial, sem alterar o valor persistido. */
+export function formatInstagram(value: string | null | undefined): string {
+  const username = (value ?? "").trim().replace(/^@+/, "")
+  return username ? `@${username}` : "—"
+}
+
 export function formatPercent(value: number, fractionDigits = 0): string {
   if (!Number.isFinite(value)) return "0%"
   return `${value.toFixed(fractionDigits)}%`

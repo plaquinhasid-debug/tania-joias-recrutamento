@@ -39,6 +39,8 @@
     "test:embaixadoras-e21bis-staff-authorization": "node --test tests/embaixadoras-e21bis-staff-authorization.test.mjs",
     "test:embaixadoras-e21bis-revoke-anon-execute": "node --test tests/embaixadoras-e21bis-revoke-anon-execute.test.mjs",
     "test:protected-route-state": "node --import ./tests/register-ts-loader.mjs --test tests/protected-route-state.test.mjs",
+    "test:list-ambassadors-admin": "node --import ./tests/register-ts-loader.mjs --test tests/list-ambassadors-admin.test.mjs",
+    "test:embaixadoras-admin-listagem": "node --import ./tests/register-ts-loader.mjs --test tests/embaixadoras-admin-listagem.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",
