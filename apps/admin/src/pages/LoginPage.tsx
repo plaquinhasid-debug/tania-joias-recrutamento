@@ -8,6 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { resolveLoginRedirectTarget } from "@/lib/loginRedirect"
 
+// IMPLEMENTATION-EMBAIXADORAS-E2.2-D.0-B — `message` é opcional e só existe
+// quando o ProtectedRoute redireciona pra cá depois de um signOut forçado
+// (sessão válida, mas não-equipe). Nunca confundir com erro de credenciais.
+interface LoginLocationState {
+  from?: Location
+  message?: string
+}
+
 export default function LoginPage() {
   const { session, loading, signIn } = useAuth()
   const navigate = useNavigate()
@@ -15,7 +23,15 @@ export default function LoginPage() {
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
-  const [error, setError] = React.useState<string | null>(null)
+  // Inicializado com `location.state.message` quando existir (ex.: "Acesso
+  // não autorizado." vindo do ProtectedRoute) — reaproveita o mesmo bloco
+  // visual de erro já existente, nunca um componente/estado paralelo. Como
+  // handleSubmit já faz `setError(null)` no início de toda tentativa nova,
+  // essa mensagem nunca sobrevive a um novo submit nem se mistura com um
+  // erro de credenciais subsequente.
+  const [error, setError] = React.useState<string | null>(
+    () => (location.state as LoginLocationState | null)?.message ?? null,
+  )
   const [submitting, setSubmitting] = React.useState(false)
 
   // IMPLEMENTATION-CRM-004B (item 4) — `resolveLoginRedirectTarget` preserva
@@ -23,7 +39,7 @@ export default function LoginPage() {
   // `/crm?lead=...` acessado deslogada sobreviver ao login. Ver
   // `lib/loginRedirect.ts`.
   if (!loading && session) {
-    const from = (location.state as { from?: Location })?.from
+    const from = (location.state as LoginLocationState | null)?.from
     return <Navigate to={resolveLoginRedirectTarget(from)} replace />
   }
 
@@ -41,7 +57,7 @@ export default function LoginPage() {
       )
       return
     }
-    const from = (location.state as { from?: Location })?.from
+    const from = (location.state as LoginLocationState | null)?.from
     navigate(resolveLoginRedirectTarget(from), { replace: true })
   }
 
