@@ -41,6 +41,7 @@
     "test:protected-route-state": "node --import ./tests/register-ts-loader.mjs --test tests/protected-route-state.test.mjs",
     "test:list-ambassadors-admin": "node --import ./tests/register-ts-loader.mjs --test tests/list-ambassadors-admin.test.mjs",
     "test:embaixadoras-admin-listagem": "node --import ./tests/register-ts-loader.mjs --test tests/embaixadoras-admin-listagem.test.mjs",
+    "test:embaixadoras-admin-convite": "node --import ./tests/register-ts-loader.mjs --test tests/embaixadoras-admin-convite.test.mjs",
     "dev:landing": "npm run dev --workspace=@tania-joias/landing",
     "dev:admin": "npm run dev --workspace=@tania-joias/admin",
     "build:landing": "npm run build --workspace=@tania-joias/landing",

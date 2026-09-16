@@ -1,11 +1,9 @@
 import { PageHeader } from "@/components/common/PageHeader"
 import { ErrorState } from "@/components/common/ErrorState"
 import { EmbaixadorasTable } from "@/components/embaixadoras/EmbaixadorasTable"
+import { ConvidarEmbaixadoraDialog } from "@/components/embaixadoras/ConvidarEmbaixadoraDialog"
 import { useEmbaixadoras } from "@/hooks/useEmbaixadoras"
 
-// IMPLEMENTATION-EMBAIXADORAS-E2.3-E — listagem V1, somente leitura. Sem
-// botão "Convidar Embaixadora" nesta etapa (entra numa rodada posterior,
-// junto com a mutation real de create-ambassador-invite).
 export default function EmbaixadorasPage() {
   const { data: embaixadoras, isLoading, isError, refetch } = useEmbaixadoras()
 
@@ -14,6 +12,7 @@ export default function EmbaixadorasPage() {
       <PageHeader
         title="Embaixadoras"
         description="Gerencie as participantes do Programa Embaixadoras Tania Jóias."
+        action={<ConvidarEmbaixadoraDialog />}
       />
 
       {isError ? (
