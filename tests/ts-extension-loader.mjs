@@ -19,14 +19,33 @@ import path from "node:path"
 const CANDIDATES = [".ts", ".tsx", "/index.ts"]
 const PROJECT_ROOT = path.resolve(fileURLToPath(import.meta.url), "..", "..")
 const LANDING_SRC = path.join(PROJECT_ROOT, "apps", "landing", "src")
+const ADMIN_SRC = path.join(PROJECT_ROOT, "apps", "admin", "src")
 const SUPABASE_STUB_SPECIFIER = "virtual:supabase-client-stub"
+
+/**
+ * `@/` é o alias de cada app pro PRÓPRIO `src/` (config Vite/tsconfig
+ * separada em apps/landing e apps/admin — mesmo especifier, raízes
+ * diferentes). Resolve com base em ONDE o import aparece (`context.parentURL`),
+ * nunca fixo num só app — E2.7-B precisou disso pra testar
+ * `apps/admin/src/hooks/useMyEmbaixadora.ts` (que importa `@/context/...`),
+ * o primeiro arquivo de admin a usar um `@/` genérico além do
+ * `@/lib/supabase` já stubado abaixo. Landing continua resolvendo
+ * exatamente como antes (mesmo `LANDING_SRC`) — mudança só adiciona o novo
+ * caso, nunca altera o existente.
+ */
+function srcRootFor(parentURL) {
+  if (!parentURL) return LANDING_SRC
+  const parentPath = fileURLToPath(parentURL)
+  if (parentPath.includes(`${path.sep}apps${path.sep}admin${path.sep}src${path.sep}`)) return ADMIN_SRC
+  return LANDING_SRC
+}
 
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/supabase") {
     return { url: SUPABASE_STUB_SPECIFIER, shortCircuit: true }
   }
   if (specifier.startsWith("@/")) {
-    const resolvedBase = path.join(LANDING_SRC, specifier.slice(2))
+    const resolvedBase = path.join(srcRootFor(context.parentURL), specifier.slice(2))
     for (const ext of CANDIDATES) {
       const candidate = resolvedBase + ext
       if (existsSync(candidate)) return nextResolve(pathToFileURL(candidate).href, context)

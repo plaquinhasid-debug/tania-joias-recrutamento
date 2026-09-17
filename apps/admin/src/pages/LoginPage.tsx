@@ -1,46 +1,113 @@
 import * as React from "react"
-import { Navigate, useLocation, useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Loader2, Lock, Mail } from "lucide-react"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { useAuth } from "@/context/AuthContext"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { resolveLoginRedirectTarget } from "@/lib/loginRedirect"
+import { resolveLoginNavigationTarget, resolveRoleAfterLogin } from "@/lib/roleResolution"
+import { fetchMinhaEmbaixadora } from "@/lib/myEmbaixadora"
 
 // IMPLEMENTATION-EMBAIXADORAS-E2.2-D.0-B — `message` é opcional e só existe
-// quando o ProtectedRoute redireciona pra cá depois de um signOut forçado
-// (sessão válida, mas não-equipe). Nunca confundir com erro de credenciais.
+// quando um dos dois guards (equipe OU Embaixadora) redireciona pra cá
+// depois de um signOut forçado. Nunca confundir com erro de credenciais.
 interface LoginLocationState {
   from?: Location
   message?: string
 }
 
+// Mesmo cast/motivo de hooks/useIsEquipe.ts: `is_equipe()` já existe de
+// verdade no banco, mas `packages/shared/src/database.types.ts` não lista
+// `Functions` (desatualizado desde antes dessas RPCs existirem). Cast local
+// só nesta chamada.
+const untypedSupabase = supabase as unknown as SupabaseClient
+
+async function checkIsEquipe(): Promise<boolean> {
+  const { data, error } = await untypedSupabase.rpc("is_equipe")
+  if (error) throw error
+  if (typeof data !== "boolean") throw new Error("is_equipe() retornou um valor inesperado (esperava boolean)")
+  return data
+}
+
 export default function LoginPage() {
-  const { session, loading, signIn } = useAuth()
+  const { session, loading, signIn, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   // Inicializado com `location.state.message` quando existir (ex.: "Acesso
-  // não autorizado." vindo do ProtectedRoute) — reaproveita o mesmo bloco
+  // não autorizado." vindo de um dos guards) — reaproveita o mesmo bloco
   // visual de erro já existente, nunca um componente/estado paralelo. Como
-  // handleSubmit já faz `setError(null)` no início de toda tentativa nova,
-  // essa mensagem nunca sobrevive a um novo submit nem se mistura com um
-  // erro de credenciais subsequente.
+  // routeSessionByRole já faz `setError(null)`/`setError(...)` de forma
+  // explícita em cada caminho, essa mensagem nunca sobrevive a um novo
+  // submit nem se mistura com um erro de credenciais subsequente.
   const [error, setError] = React.useState<string | null>(
     () => (location.state as LoginLocationState | null)?.message ?? null,
   )
   const [submitting, setSubmitting] = React.useState(false)
+  // `true` enquanto resolvemos o papel (equipe/Embaixadora/nenhum) de uma
+  // sessão já existente — cobre tanto "acabou de logar" quanto "abriu
+  // /login já autenticada" (ver useEffect abaixo). Nome deliberadamente
+  // distinto de `submitting` (que é só o POST de signInWithPassword).
+  const [resolvingRole, setResolvingRole] = React.useState(false)
+  // Evita disparar a resolução de papel mais de uma vez pro mesmo objeto de
+  // sessão (StrictMode/re-render) — resetado explicitamente nos caminhos de
+  // falha/"none" abaixo, pra uma nova tentativa de login (nova sessão)
+  // poder rodar de novo.
+  const resolvedRef = React.useRef(false)
 
-  // IMPLEMENTATION-CRM-004B (item 4) — `resolveLoginRedirectTarget` preserva
-  // `pathname` + `search` (não só `pathname`), pra um deep link
-  // `/crm?lead=...` acessado deslogada sobreviver ao login. Ver
-  // `lib/loginRedirect.ts`.
-  if (!loading && session) {
+  // IMPLEMENTATION-EMBAIXADORAS-E2.7-B — ÚNICO ponto de decisão de destino
+  // pós-login, usado tanto por um login novo (handleSubmit -> signIn ->
+  // session muda -> este efeito dispara) quanto por uma sessão já existente
+  // ao abrir /login diretamente (mesmo efeito, mesmo caminho — nunca um
+  // <Navigate> síncrono separado que assumiria "equipe" por fallback, como
+  // a versão anterior desta página fazia).
+  React.useEffect(() => {
+    if (loading || !session || resolvedRef.current) return
+    resolvedRef.current = true
+    setResolvingRole(true)
+    void routeSessionByRole()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, session])
+
+  async function routeSessionByRole() {
+    let role: Awaited<ReturnType<typeof resolveRoleAfterLogin>>
+    try {
+      role = await resolveRoleAfterLogin({ checkIsEquipe, fetchMinhaEmbaixadora })
+    } catch {
+      resolvedRef.current = false
+      setResolvingRole(false)
+      await signOut()
+      setError("Não foi possível confirmar seu acesso. Tente novamente.")
+      return
+    }
+
     const from = (location.state as LoginLocationState | null)?.from
-    return <Navigate to={resolveLoginRedirectTarget(from)} replace />
+    const target = resolveLoginNavigationTarget(role, from)
+    if (target) {
+      navigate(target, { replace: true })
+      return
+    }
+
+    // role === "none": autenticado de verdade, mas nem equipe nem
+    // Embaixadora ativa — nunca monta nenhuma rota protegida, nunca
+    // "cai" pra um dos dois papéis por ausência do outro.
+    resolvedRef.current = false
+    setResolvingRole(false)
+    await signOut()
+    setError("Acesso não autorizado.")
+  }
+
+  if (resolvingRole) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="size-8 animate-spin rounded-full border-2 border-border border-t-gold" />
+      </div>
+    )
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -57,8 +124,9 @@ export default function LoginPage() {
       )
       return
     }
-    const from = (location.state as LoginLocationState | null)?.from
-    navigate(resolveLoginRedirectTarget(from), { replace: true })
+    // Sucesso: `session` muda via onAuthStateChange -> o useEffect acima
+    // assume a partir daqui (checa papel, decide destino). Nenhum
+    // navigate() direto aqui — nunca presume "equipe" antes de checar.
   }
 
   return (
