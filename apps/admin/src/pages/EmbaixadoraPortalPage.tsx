@@ -3,27 +3,39 @@ import { toast } from "sonner"
 
 import { useAuth } from "@/context/AuthContext"
 import { useMyEmbaixadora } from "@/hooks/useMyEmbaixadora"
+import { useMyIndicacoes, type SituacaoIndicacao } from "@/hooks/useMyIndicacoes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { formatDate } from "@/lib/format"
 import { buildReferralUrl, buildWhatsappShareMessage, buildWhatsappShareUrl, copyReferralLink } from "@/lib/referralLink"
 
-// IMPLEMENTATION-EMBAIXADORAS-E2.7-B/E2.8 — Portal Mínimo. Mostra SÓ os 3
-// campos que `get-my-embaixadora` devolve (nome/status/codigo_referral) +
-// sair, e agora (E2.8) o link pessoal de indicação (montado localmente a
-// partir do `codigo_referral` já existente, sem chamada de rede nova).
-// Fora de escopo, de propósito: indicações realizadas, conversões,
-// recompensas, saldo, qualquer coisa do ConsigGold/R$40 — ver pedido da
-// E2.8, seção "Não implementar ainda".
+// IMPLEMENTATION-EMBAIXADORAS-E2.7-B/E2.8/E2.9 — Portal Mínimo. Mostra SÓ
+// os 3 campos que `get-my-embaixadora` devolve (nome/status/codigo_referral)
+// + sair, o link pessoal de indicação (E2.8, montado localmente a partir do
+// `codigo_referral` já existente, sem chamada de rede nova), e agora (E2.9)
+// a lista de indicações já realizadas (`get-my-indicacoes`). Fora de
+// escopo, de propósito: recompensas, saldo, R$40, ConsigGold, mostruário,
+// ranking, gamificação — ver pedido da E2.9, seção "Fora do escopo".
 
 const STATUS_LABEL: Record<string, string> = {
   ativa: "Ativa",
 }
 
+// Rótulos aprovados na E2.9 (seção 3) — os 3 únicos estados públicos que a
+// Embaixadora vê, nunca o valor cru do banco nem etapas operacionais
+// internas do Kanban do Admin.
+const SITUACAO_LABEL: Record<SituacaoIndicacao, string> = {
+  em_analise: "Em análise",
+  aprovada: "Aprovada",
+  nao_aprovada: "Não aprovada",
+}
+
 export default function EmbaixadoraPortalPage() {
   const { signOut } = useAuth()
   const query = useMyEmbaixadora()
+  const indicacoesQuery = useMyIndicacoes()
 
   if (query.isLoading) {
     return (
@@ -97,6 +109,34 @@ export default function EmbaixadoraPortalPage() {
                 Copiar link
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Minhas indicações</CardTitle>
+            <CardDescription>
+              {indicacoesQuery.data
+                ? `${indicacoesQuery.data.total} ${indicacoesQuery.data.total === 1 ? "indicação" : "indicações"}`
+                : "Carregando..."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {indicacoesQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Carregando suas indicações...</p>
+            ) : !indicacoesQuery.data || indicacoesQuery.data.indicacoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Você ainda não tem indicações.</p>
+            ) : (
+              <ul className="space-y-3">
+                {indicacoesQuery.data.indicacoes.map((indicacao, index) => (
+                  <li key={index} className="rounded-md border border-border p-3">
+                    <p className="font-medium text-foreground">{indicacao.nome}</p>
+                    <p className="text-sm text-muted-foreground">{SITUACAO_LABEL[indicacao.situacao]}</p>
+                    <p className="text-xs text-muted-foreground">Indicada em {formatDate(indicacao.indicada_em)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

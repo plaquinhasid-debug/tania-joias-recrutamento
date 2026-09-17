@@ -287,13 +287,15 @@ test("PORTAL: EmbaixadoraPortalPage mostra saudação com nome, status, código 
   assert.match(source, /onClick=\{\(\) => void signOut\(\)\}/)
 })
 
-test("PORTAL: EmbaixadoraPortalPage não RENDERIZA/IMPLEMENTA indicações/recompensas/saldo/ConsigGold (fora de escopo desta etapa) — só documenta isso em comentário", () => {
+test("PORTAL: EmbaixadoraPortalPage não RENDERIZA/IMPLEMENTA recompensas/saldo/ConsigGold/R$40 (ainda fora de escopo) — indicações (E2.9) passou a ser escopo real, então deixou de ser proibida aqui", () => {
   const source = readFileSync(new URL("../apps/admin/src/pages/EmbaixadoraPortalPage.tsx", import.meta.url), "utf8")
   const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
-  // "código de indicação" (singular) É esperado — é um dos 3 campos do
-  // Portal Mínimo. O que não pode existir é a FEATURE de indicações
-  // (plural) nem recompensa/saldo/ConsigGold/R$40.
-  assert.doesNotMatch(codeOnly, /indicações|recompensa|saldo|consiggold|r\$\s*40|indicacoes_embaixadoras|recompensas_embaixadoras/i)
+  // E2.8: "indicações" (plural) era proibido — a feature ainda não existia.
+  // E2.9: "Minhas indicações" é a própria feature desta etapa, então a
+  // palavra passou a ser esperada. O que continua proibido é qualquer
+  // rastro de recompensa/saldo/ConsigGold/R$40, e nomes de tabela crus
+  // (nunca deveriam aparecer no frontend de qualquer forma).
+  assert.doesNotMatch(codeOnly, /recompensa|saldo|consiggold|r\$\s*40|indicacoes_embaixadoras|recompensas_embaixadoras/i)
 })
 
 // =========================================================================
