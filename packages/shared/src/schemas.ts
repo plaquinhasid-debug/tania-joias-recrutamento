@@ -63,6 +63,13 @@ export const finalizeCandidatePayloadSchema = z.object({
   fbp: z.string().optional(),
   fbc: z.string().optional(),
   fbclid: z.string().optional(),
+  // IMPLEMENTATION-EMBAIXADORAS-E2.8 — código de indicação público de uma
+  // Embaixadora (embaixadoras.codigo_referral), nunca um UUID interno.
+  // Opcional: a grande maioria das candidatas chega sem indicação nenhuma.
+  // A resolução (código -> Embaixadora ativa -> vínculo) é inteiramente
+  // responsabilidade do servidor (finalize-candidate) — o navegador nunca
+  // escolhe a Embaixadora, só repassa o código que capturou da URL.
+  ref: z.string().optional(),
 })
 
 export type FinalizeCandidatePayload = z.infer<typeof finalizeCandidatePayloadSchema>

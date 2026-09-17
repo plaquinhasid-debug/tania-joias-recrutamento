@@ -39,6 +39,11 @@ export type Payload = {
   fbp?: string
   fbc?: string
   fbclid?: string
+  // IMPLEMENTATION-EMBAIXADORAS-E2.8 — código público de indicação
+  // (embaixadoras.codigo_referral), nunca um UUID interno. Resolvido
+  // server-side em index.ts, nunca usado aqui (logic.ts é o motor de
+  // IPR/status, alheio a Embaixadoras de propósito).
+  ref?: string
 }
 
 export type IprPesos = {
@@ -225,4 +230,92 @@ export function gerarResumo(
     partes.push(`Possui perfil comercial ${perfil}.`)
   }
   return partes.join(" ")
+}
+
+// =========================================================================
+// EMBAIXADORAS — atribuição de indicação (E2.8)
+//
+// Lógica PURA (sem I/O). A resolução real (código -> Embaixadora ativa,
+// normalização de telefone, UPSERT em indicacoes_embaixadoras) mora em
+// index.ts, que é o único ponto de I/O — mesma disciplina do resto deste
+// arquivo. Nenhuma função aqui decide se uma indicação É válida (isso
+// depende do banco); só decidem se VALE A PENA tentar, e como montar a
+// linha a inserir, de forma auditável e testável sem rede.
+// =========================================================================
+
+/**
+ * `false` pra qualquer coisa que não seja uma string não-vazia — nunca
+ * gasta uma consulta ao banco pra um `ref` ausente/vazio/só espaço. NUNCA
+ * valida formato de verdade (isso seria dar pista pública do formato
+ * esperado); a única autoridade real sobre "este código existe e está
+ * ativo" é a consulta a `embaixadoras` em index.ts.
+ */
+export function isPlausibleReferralCode(ref: string | null | undefined): ref is string {
+  return typeof ref === "string" && ref.trim().length > 0
+}
+
+export interface IndicacaoEmbaixadoraRow {
+  embaixadora_id: string
+  lead_id: string
+  candidata_telefone_normalizado: string
+  codigo_referral_usado: string
+}
+
+/**
+ * Projeção explícita campo a campo (nunca spread) — mesma defesa em
+ * profundidade já usada em `list-ambassadors-admin/logic.ts`/
+ * `get-my-embaixadora/logic.ts`: garante que só estes 4 campos chegam ao
+ * INSERT/UPSERT, nunca nenhum campo extra que viesse de um objeto maior por
+ * engano. `codigoReferralUsado` é sempre o `ref` ORIGINAL recebido no
+ * payload (cópia histórica), nunca um valor normalizado/reescrito.
+ */
+export function buildIndicacaoEmbaixadoraRow(params: {
+  embaixadoraId: string
+  leadId: string
+  telefoneNormalizado: string
+  codigoReferralUsado: string
+}): IndicacaoEmbaixadoraRow {
+  return {
+    embaixadora_id: params.embaixadoraId,
+    lead_id: params.leadId,
+    candidata_telefone_normalizado: params.telefoneNormalizado,
+    codigo_referral_usado: params.codigoReferralUsado,
+  }
+}
+
+export type AttributionDecision =
+  | { action: "skip"; reason: "no_ref" | "embaixadora_not_found" | "phone_invalid" }
+  | { action: "attempt_insert"; row: IndicacaoEmbaixadoraRow }
+
+/**
+ * Decide SE vale tentar gravar uma indicação, a partir dos resultados já
+ * obtidos (consulta a embaixadoras + normalização de telefone) — nunca faz
+ * a consulta nem o INSERT/UPSERT em si (isso é I/O, mora em index.ts).
+ *
+ * O QUE ESTA FUNÇÃO NÃO DECIDE: se duas tentativas concorrentes (ou duas
+ * submissões da mesma candidata) colidem no mesmo `candidata_telefone_normalizado`
+ * — isso é responsabilidade do UPSERT com `ignoreDuplicates: true` contra a
+ * constraint UNIQUE real do banco (migration 20260915180000), autoridade
+ * final de "primeira indicação vence, silenciosamente". Testado por
+ * inspeção estática de index.ts + da migration, não aqui (não há Postgres
+ * de verdade neste ambiente de teste).
+ */
+export function decideAttribution(params: {
+  ref: string | null | undefined
+  embaixadora: { id: string } | null
+  leadId: string
+  telefoneNormalizado: { valid: true; e164: string } | { valid: false }
+}): AttributionDecision {
+  if (!isPlausibleReferralCode(params.ref)) return { action: "skip", reason: "no_ref" }
+  if (!params.embaixadora) return { action: "skip", reason: "embaixadora_not_found" }
+  if (!params.telefoneNormalizado.valid) return { action: "skip", reason: "phone_invalid" }
+  return {
+    action: "attempt_insert",
+    row: buildIndicacaoEmbaixadoraRow({
+      embaixadoraId: params.embaixadora.id,
+      leadId: params.leadId,
+      telefoneNormalizado: params.telefoneNormalizado.e164,
+      codigoReferralUsado: params.ref,
+    }),
+  }
 }

@@ -63,6 +63,8 @@ interface UseSofiaFlowParams {
   utm: UtmParams
   origem?: string
   campanha?: string
+  /** IMPLEMENTATION-EMBAIXADORAS-E2.8 — código público de indicação (`?ref=`), nunca um id interno. Repassado como está pro payload; a resolução é 100% responsabilidade do servidor. */
+  ref?: string
 }
 
 export interface SofiaFlow {
@@ -79,7 +81,7 @@ export interface SofiaFlow {
   retrySubmit: () => void
 }
 
-export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowParams): SofiaFlow {
+export function useSofiaFlow({ sessionId, utm, origem, campanha, ref }: UseSofiaFlowParams): SofiaFlow {
   const [phase, setPhase] = useState<SofiaPhase>("intro")
   const [messages, setMessages] = useState<SofiaMessage[]>([])
   const [stepIndex, setStepIndex] = useState<number>(0)
@@ -219,6 +221,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         fbp: getFbp(),
         fbc: getOrBuildFbc(getOrCaptureFbclid()),
         fbclid: getOrCaptureFbclid(),
+        ref,
       }
 
       try {
@@ -240,7 +243,7 @@ export function useSofiaFlow({ sessionId, utm, origem, campanha }: UseSofiaFlowP
         setPhase("error")
       }
     },
-    [sessionId, origem, campanha, utm.utm_source, utm.utm_medium, utm.utm_campaign, utm.utm_content],
+    [sessionId, origem, campanha, ref, utm.utm_source, utm.utm_medium, utm.utm_campaign, utm.utm_content],
   )
 
   /**

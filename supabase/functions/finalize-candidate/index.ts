@@ -17,14 +17,21 @@ import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
 import { sendWhatsappApprovalTemplate, sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
 import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
+// IMPLEMENTATION-EMBAIXADORAS-E2.8 — mesmo normalizador oficial já usado por
+// create-ambassador-invite/logic.ts (import relativo cruzando pra
+// packages/shared, padrão já comprovado em produção — ver comentário
+// original lá sobre por que isso resolve tanto em Node quanto em Deno).
+import { normalizeBrazilianPhone } from "../../../packages/shared/src/phone.ts"
 import {
   PROFISSOES_PREFERIDAS,
   calcularElegibilidade,
   calcularIpr,
   classificarPerfil,
+  decideAttribution,
   decidirStatus,
   gerarResumo,
   isCidadeAtendida,
+  isPlausibleReferralCode,
   mapEstabilidadeProfissional,
   type CidadesAtendidas,
   type IprPesos,
@@ -253,6 +260,53 @@ Deno.serve(async (req) => {
       origem: payload.origem ?? null,
     })),
   )
+
+  // IMPLEMENTATION-EMBAIXADORAS-E2.8 — atribuição de indicação. Best-effort
+  // total, mesmo padrão dos blocos de Ficha/Meta/WhatsApp abaixo: NUNCA
+  // lança, NUNCA muda a resposta pública, roda pra QUALQUER status (não só
+  // aprovada — a indicação registra a origem da candidatura, independente
+  // do resultado do IPR).
+  //
+  // "Primeira indicação vence, silenciosamente" (decisão de produto
+  // confirmada): o UPSERT abaixo usa `ignoreDuplicates: true` na constraint
+  // UNIQUE de `candidata_telefone_normalizado` (migration 20260915180000)
+  // — se essa candidata já tiver uma indicação (desta ou de outra
+  // Embaixadora), esta tentativa vira no-op silencioso, nunca sobrescreve
+  // `embaixadora_id`/`codigo_referral_usado` da indicação original.
+  //
+  // Nunca revela a existência/validade do código pra fora desta function:
+  // `ref` inexistente, de Embaixadora não-`ativa`, ou telefone que não
+  // normaliza -> simplesmente não atribui nada, sem nenhuma diferença na
+  // resposta ao cliente.
+  if (isPlausibleReferralCode(payload.ref)) {
+    try {
+      const { data: embaixadora, error: embaixadoraError } = await supabase
+        .from("embaixadoras")
+        .select("id")
+        .eq("codigo_referral", payload.ref)
+        .eq("status", "ativa")
+        .maybeSingle()
+      if (embaixadoraError) throw embaixadoraError
+
+      const decisao = decideAttribution({
+        ref: payload.ref,
+        embaixadora: embaixadora ?? null,
+        leadId: lead.id,
+        telefoneNormalizado: normalizeBrazilianPhone(payload.telefone),
+      })
+
+      if (decisao.action === "attempt_insert") {
+        const { error: indicacaoError } = await supabase
+          .from("indicacoes_embaixadoras")
+          .upsert(decisao.row, { onConflict: "candidata_telefone_normalizado", ignoreDuplicates: true })
+        if (indicacaoError) throw indicacaoError
+      }
+    } catch (err) {
+      // Nunca loga o código de indicação nem o telefone — só que a
+      // tentativa falhou, pro técnico investigar sem PII no log.
+      console.error("[finalize-candidate] falha ao processar atribuição de indicação", err)
+    }
+  }
 
   if (status === "aprovada") {
     // Gera o link da Ficha de Aprovação sozinho, mesmo quando a própria IPR

@@ -7,6 +7,7 @@
 const SESSION_ID_KEY = "tj_session_id"
 const UTM_KEY = "tj_utm_params"
 const FBCLID_KEY = "tj_fbclid"
+const REFERRAL_CODE_KEY = "tj_ref"
 const LOGGED_PREFIX = "tj_logged__"
 
 export interface UtmParams {
@@ -95,6 +96,33 @@ export function getOrCaptureFbclid(): string | undefined {
   }
 
   return storage?.getItem(FBCLID_KEY) ?? undefined
+}
+
+/**
+ * IMPLEMENTATION-EMBAIXADORAS-E2.8 — captura `?ref=` da URL (código público
+ * de indicação de uma Embaixadora, ex.: "7E9NH4VD") e persiste em
+ * sessionStorage para sobreviver a navegações dentro da SPA e a um refresh
+ * na mesma aba. Mesmo padrão exato de `getOrCaptureFbclid` acima — URL tem
+ * prioridade, senão recupera o que já estava salvo.
+ *
+ * Nunca é um UUID/id interno — é só o código público que
+ * `finalize-candidate` resolve (ou não) contra `embaixadoras.codigo_referral`
+ * no servidor. Se o valor for inválido/inexistente, o servidor
+ * simplesmente não atribui nada — este helper nunca valida formato, só
+ * transporta o que veio da URL.
+ */
+export function getOrCaptureReferralCode(): string | undefined {
+  const storage = getStorage()
+
+  if (typeof window !== "undefined") {
+    const fromUrl = new URLSearchParams(window.location.search).get("ref")
+    if (fromUrl) {
+      storage?.setItem(REFERRAL_CODE_KEY, fromUrl)
+      return fromUrl
+    }
+  }
+
+  return storage?.getItem(REFERRAL_CODE_KEY) ?? undefined
 }
 
 function readCookie(name: string): string | undefined {
