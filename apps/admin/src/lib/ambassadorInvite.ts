@@ -123,3 +123,93 @@ export async function copyInviteLink(url: string, writeText: (text: string) => P
     return false
   }
 }
+
+// =========================================================================
+// REENVIO (E2.6-A) — gera um convite NOVO para uma Embaixadora já
+// existente (status='convidada'), invalidando o anterior. Primitivas
+// deliberadamente separadas das de criação acima (nomes/tipos próprios):
+// o reenvio não tem formulário (nome/telefone/email/instagram), só um
+// identificador + uma prova de estado (`expectedUpdatedAt`), então
+// reaproveitar `InviteDialogState`/`inviteDialogReducer` obrigaria a
+// carregar campos que não fazem sentido aqui.
+// =========================================================================
+
+export interface ResendAmbassadorInviteInput {
+  embaixadoraId: string
+  expectedUpdatedAt: string
+}
+
+export interface ResendAmbassadorInviteResult {
+  invite_url: string
+  invite_expira_em: string
+}
+
+export const RESEND_UNEXPECTED_ERROR = "Não foi possível confirmar o reenvio do convite. Atualize a listagem antes de tentar novamente."
+
+export class ResendInviteRequestError extends Error {}
+
+const RESEND_CONFLICT_MESSAGES = new Map([
+  ["not_found", "Esta Embaixadora não foi encontrada. Atualize a listagem."],
+  ["nao_convidada", "Este convite não pode mais ser reenviado (a Embaixadora já resgatou, foi desativada ou está em outro estado)."],
+  ["resgate_em_andamento", "Alguém pode estar finalizando o cadastro agora com o link atual. Tente novamente em alguns minutos."],
+  ["estado_desatualizado", "A listagem estava desatualizada (outra pessoa já mexeu neste convite). Atualize a página e tente de novo."],
+])
+
+export function resendInviteHttpErrorMessage(status: number, code?: string): string {
+  switch (status) {
+    case 400: return "Não foi possível enviar o pedido de reenvio. Atualize a página e tente de novo."
+    case 401: return "Sua sessão expirou ou é inválida. Entre novamente para continuar."
+    case 403: return "Você não tem autorização para reenviar convites neste acesso."
+    case 404:
+    case 409: return RESEND_CONFLICT_MESSAGES.get(code ?? "") ?? "Não foi possível reenviar este convite agora. Atualize a listagem."
+    case 500: return "Não foi possível reenviar o convite por um erro interno. Tente novamente."
+    default: return RESEND_UNEXPECTED_ERROR
+  }
+}
+
+/** Projeta somente o contrato necessário, sem reter a resposta HTTP — mesmo espírito de parseInviteResult. */
+export function parseResendResult(value: unknown): ResendAmbassadorInviteResult {
+  if (
+    !isRecord(value) ||
+    typeof value.invite_url !== "string" || !value.invite_url.trim() ||
+    typeof value.invite_expira_em !== "string" || !value.invite_expira_em.trim()
+  ) {
+    throw new ResendInviteRequestError(RESEND_UNEXPECTED_ERROR)
+  }
+  return { invite_url: value.invite_url, invite_expira_em: value.invite_expira_em }
+}
+
+export interface ResendDialogState {
+  error: string | null
+  result: ResendAmbassadorInviteResult | null
+}
+
+export function initialResendDialogState(): ResendDialogState {
+  return { error: null, result: null }
+}
+
+type ResendDialogAction =
+  | { type: "error"; message: string | null }
+  | { type: "success"; result: ResendAmbassadorInviteResult }
+  | { type: "reset" }
+
+export function resendDialogReducer(state: ResendDialogState, action: ResendDialogAction): ResendDialogState {
+  switch (action.type) {
+    case "error": return { ...state, error: action.message }
+    case "success": return { error: null, result: action.result }
+    case "reset": return initialResendDialogState()
+  }
+}
+
+/** Trava síncrona: mesmo padrão de createInviteSubmissionGuard, protege contra duplo clique/duas submissões antes do próximo render. */
+export function createResendSubmissionGuard() {
+  let pending = false
+  return {
+    isPending: () => pending,
+    async run(task: () => Promise<void>): Promise<void> {
+      if (pending) return
+      pending = true
+      try { await task() } finally { pending = false }
+    },
+  }
+}

@@ -16,6 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/common/EmptyState"
 import { EmbaixadoraStatusBadge } from "@/components/embaixadoras/EmbaixadoraStatusBadge"
+import { ReenviarConviteDialog } from "@/components/embaixadoras/ReenviarConviteDialog"
 import { formatDate, formatInstagram, formatTelefoneNormalizado } from "@/lib/format"
 import type { EmbaixadoraAdmin } from "@/hooks/useEmbaixadoras"
 
@@ -51,6 +52,15 @@ const columns = [
   columnHelper.accessor("created_at", {
     header: "Cadastro",
     cell: (info) => formatDate(info.getValue()),
+  }),
+  // E2.6-A: só renderiza o botão quando status='convidada' (a própria
+  // ReenviarConviteDialog já decide isso — ver comentário lá); para
+  // qualquer outro status a célula fica vazia, sem coluna "traço" poluindo
+  // a tabela.
+  columnHelper.display({
+    id: "acoes",
+    header: "Ações",
+    cell: (info) => <ReenviarConviteDialog embaixadora={info.row.original} />,
   }),
 ]
 

@@ -78,13 +78,19 @@ Deno.serve(
     allowedOrigins: allowedOrigins(),
     authorize,
     listEmbaixadoras: async () => {
-      // SELECT explícito — nunca "*". Só os 9 campos que o Admin V1
+      // SELECT explícito — nunca "*". Só os 10 campos que o Admin V1
       // precisa; nunca invite_token_hash/invite_claim_*/
       // invite_expira_em/invite_token_usado_em/user_id/aprovada_por (ver
-      // auditoria E2.3-A, seção G).
+      // auditoria E2.3-A, seção G). `updated_at` adicionado na E2.6-A: é o
+      // valor que o Admin devolve como `expected_updated_at` ao chamar
+      // resend-ambassador-invite (bloqueio otimista contra dois reenvios
+      // concorrentes) — não é sensível (é só um timestamp de última
+      // escrita, já usado como bloqueio em várias tabelas do projeto).
       const { data, error } = await serviceClient
         .from("embaixadoras")
-        .select("id, nome, telefone_normalizado, email, instagram, codigo_referral, status, created_at, aprovada_em")
+        .select(
+          "id, nome, telefone_normalizado, email, instagram, codigo_referral, status, created_at, aprovada_em, updated_at",
+        )
         .order("created_at", { ascending: false })
       if (error) throw error
       return (data ?? []) as EmbaixadoraRow[]

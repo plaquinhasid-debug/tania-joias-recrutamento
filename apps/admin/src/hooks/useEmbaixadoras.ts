@@ -15,11 +15,14 @@ export type EmbaixadoraStatus = "convidada" | "ativa" | "inativa" | "rejeitada"
 
 /**
  * Tipo local estreito — não é o schema completo de `public.embaixadoras`
- * (que tem colunas sensíveis como `invite_token_hash`), só os 9 campos que
+ * (que tem colunas sensíveis como `invite_token_hash`), só os 10 campos que
  * `list-ambassadors-admin` devolve (ver auditoria E2.3-A, seção G). Local de
  * propósito: `packages/shared/src/database.types.ts` não tem `embaixadoras`
  * nem `Functions` (desatualizado desde antes dessas features existirem —
  * achado da E2.2-D.0-B/E2.3-B) e não deve ser regenerado nesta rodada.
+ * `updated_at` (E2.6-A): enviado de volta como `expected_updated_at` ao
+ * chamar `resend-ambassador-invite` — bloqueio otimista contra dois
+ * reenvios concorrentes (ver hooks/useResendAmbassadorInvite.ts).
  */
 export interface EmbaixadoraAdmin {
   id: string
@@ -31,6 +34,7 @@ export interface EmbaixadoraAdmin {
   status: EmbaixadoraStatus
   created_at: string
   aprovada_em: string | null
+  updated_at: string
 }
 
 interface ListAmbassadorsAdminResponse {

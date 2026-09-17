@@ -26,6 +26,7 @@ const SAMPLE_ROW = {
   status: "convidada",
   created_at: "2026-09-16T10:00:00.000Z",
   aprovada_em: null,
+  updated_at: "2026-09-16T10:00:00.000Z",
 }
 
 async function alwaysEquipeAuthorize() {
@@ -294,15 +295,23 @@ test("PRIVACIDADE: mesmo se listEmbaixadoras devolver campos extras sensíveis, 
   }
 })
 
-test("PRIVACIDADE: resposta de sucesso contém EXATAMENTE os 9 campos esperados, nunca mais", async () => {
+test("PRIVACIDADE: resposta de sucesso contém EXATAMENTE os 10 campos esperados, nunca mais", async () => {
   const { deps } = makeDeps({ listEmbaixadoras: async () => [SAMPLE_ROW] })
   const handler = createListAmbassadorsAdminHandler(deps)
   const res = await handler(makeRequest())
   const bodyJson = await res.json()
   assert.deepEqual(
     Object.keys(bodyJson.embaixadoras[0]).sort(),
-    ["aprovada_em", "codigo_referral", "created_at", "email", "id", "instagram", "nome", "status", "telefone_normalizado"],
+    ["aprovada_em", "codigo_referral", "created_at", "email", "id", "instagram", "nome", "status", "telefone_normalizado", "updated_at"],
   )
+})
+
+test("LISTAGEM: updated_at é devolvido tal como veio da linha (E2.6-A, bloqueio otimista do reenvio)", async () => {
+  const { deps } = makeDeps({ listEmbaixadoras: async () => [{ ...SAMPLE_ROW, updated_at: "2026-09-17T08:30:00.000Z" }] })
+  const handler = createListAmbassadorsAdminHandler(deps)
+  const res = await handler(makeRequest())
+  const bodyJson = await res.json()
+  assert.equal(bodyJson.embaixadoras[0].updated_at, "2026-09-17T08:30:00.000Z")
 })
 
 test("PRIVACIDADE: nenhum log contém nome/telefone/email/instagram/lista", async () => {
@@ -343,7 +352,7 @@ test("DEFESA EM PROFUNDIDADE: projectEmbaixadora nunca inclui campos extras do o
   const projected = projectEmbaixadora(rowComExtras)
   assert.deepEqual(
     Object.keys(projected).sort(),
-    ["aprovada_em", "codigo_referral", "created_at", "email", "id", "instagram", "nome", "status", "telefone_normalizado"],
+    ["aprovada_em", "codigo_referral", "created_at", "email", "id", "instagram", "nome", "status", "telefone_normalizado", "updated_at"],
   )
   assert.ok(!JSON.stringify(projected).includes("segredo"))
 })
@@ -380,7 +389,10 @@ test("index.ts: SELECT explícito de colunas — nunca .select(\"*\")", () => {
   )
   const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
   assert.ok(!/\.select\(\s*["']\*["']\s*\)/.test(codeOnly), "nunca usar select(\"*\") — sempre lista de colunas explícita")
-  assert.match(codeOnly, /\.select\(\s*["']id, nome, telefone_normalizado, email, instagram, codigo_referral, status, created_at, aprovada_em["']\s*\)/)
+  assert.match(
+    codeOnly,
+    /\.select\(\s*"id, nome, telefone_normalizado, email, instagram, codigo_referral, status, created_at, aprovada_em, updated_at",?\s*\)/,
+  )
 })
 
 test("index.ts: env vars obrigatórias usam requireEnv — não Deno.env.get(...)! direto", () => {
