@@ -17,11 +17,14 @@ import { sendMetaLeadEvent } from "../_shared/meta-conversions.ts"
 import { sendWhatsappApprovalTemplate, sendWhatsappFichaTemplate } from "../_shared/whatsapp-cloud-api.ts"
 import { recordOutboundWhatsappMessage } from "../_shared/whatsapp-message-log.ts"
 import { CLAUDE_MODEL, generateAiAnalysis } from "../_shared/ai-analysis.ts"
-// IMPLEMENTATION-EMBAIXADORAS-E2.8 — mesmo normalizador oficial já usado por
-// create-ambassador-invite/logic.ts (import relativo cruzando pra
-// packages/shared, padrão já comprovado em produção — ver comentário
-// original lá sobre por que isso resolve tanto em Node quanto em Deno).
-import { normalizeBrazilianPhone } from "../../../packages/shared/src/phone.ts"
+// IMPLEMENTATION-EMBAIXADORAS-E2.8 — cópia local (não import cruzando pra
+// packages/shared): finalize-candidate já é deployado com a convenção
+// "source/index.ts" + "_shared/*.ts" siblings (sem espelhar a árvore real
+// do repo), então um import de 3 níveis acima escaparia do bundle nesse
+// empacotamento. Mesma disciplina já usada por normalizeBrazilPhone em
+// _shared/whatsapp-cloud-api.ts — ver cabeçalho de _shared/phone.ts pro
+// motivo completo.
+import { normalizeBrazilianPhone } from "../_shared/phone.ts"
 import {
   PROFISSOES_PREFERIDAS,
   calcularElegibilidade,

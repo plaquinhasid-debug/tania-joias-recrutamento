@@ -206,9 +206,29 @@ test("index.ts: o log de erro da atribuição nunca inclui o telefone ou o códi
   assert.doesNotMatch(block, /console\.error\([^)]*payload\.ref/)
 })
 
-test("index.ts: importa o normalizador oficial de telefone (mesmo padrão já usado por create-ambassador-invite)", () => {
+test("index.ts: importa o normalizador de _shared/phone.ts (não packages/shared — esta function é empacotada como source/+_shared/ siblings, um import de 3 níveis acima escaparia do bundle)", () => {
   const code = codeOnly("../supabase/functions/finalize-candidate/index.ts")
-  assert.match(code, /import \{ normalizeBrazilianPhone \} from "\.\.\/\.\.\/\.\.\/packages\/shared\/src\/phone\.ts"/)
+  assert.match(code, /import \{ normalizeBrazilianPhone \} from "\.\.\/_shared\/phone\.ts"/)
+})
+
+test("_shared/phone.ts: é cópia funcional de packages/shared/src/phone.ts — mesmas funções exportadas, mesmo comportamento (regressão contra divergência silenciosa)", async () => {
+  const sharedMod = await import("../packages/shared/src/phone.ts")
+  const localMod = await import("../supabase/functions/_shared/phone.ts")
+  const casosDeTeste = [
+    "11 989459188",
+    "5511989459188",
+    "55 98888-7777",
+    "",
+    "123",
+    "(11) 3333-4444",
+  ]
+  for (const caso of casosDeTeste) {
+    assert.deepEqual(
+      localMod.normalizeBrazilianPhone(caso),
+      sharedMod.normalizeBrazilianPhone(caso),
+      `divergência pra entrada ${JSON.stringify(caso)}`,
+    )
+  }
 })
 
 test("index.ts: nunca cria endpoint/rota de validação de ref separado — toda leitura de payload.ref fica dentro do único bloco de atribuição", () => {
